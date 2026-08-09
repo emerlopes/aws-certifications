@@ -30,9 +30,32 @@ e explícito.
    `t4g.nano`, Aurora Serverless v2, Spot).
 6. **O README do lab é o produto.** O `.tf` provisiona; o README explica por que o
    lab existe, o que observar depois do apply e quais questões do exame ele responde.
-   Um lab sem roteiro de verificação não serve para estudar.
-7. Terraform `>= 1.11`, provider AWS `~> 6.0`. Commite `.terraform.lock.hcl`.
-8. Rode `terraform fmt` antes de considerar qualquer `.tf` pronto.
+   Um lab sem roteiro de verificação não serve para estudar. A seção **Arquitetura**
+   tem sempre três partes, nesta ordem: diagrama **Mermaid** (nunca ASCII, nunca
+   imagem) → **Como ler o desenho** → **Glossário**. O template explica cada uma;
+   `lab-01-vpc-base` é a referência de forma.
+7. **Nunca use `<` ou `>` como placeholder em Markdown ou em label de Mermaid.**
+   Os dois renderizam HTML: `<Serviço>`, `<cor>` e `<a caixa X>` são tags válidas e
+   o GitHub **engole o texto sem dar erro nenhum** — `<a ...>` ainda transforma o
+   resto da linha em âncora. Use CAIXA-ALTA (`SERVIÇO`, `NOME-DO-CAMINHO`), crase
+   (`` `<lab-dir>` ``, que é seguro por ser código) ou travessão. Colchete com
+   espaço (`<o que clicar>`) **não** é seguro: `o` é nome de tag e o resto vira
+   atributo. Verificação rápida antes de commitar um `.md`:
+
+   ```bash
+   grep -nE '</?[A-Za-z][A-Za-z0-9-]*( +[A-Za-z_:][A-Za-z0-9_.:-]*)*/?>' arquivo.md
+   ```
+
+8. **Diagrama Mermaid só entra depois de renderizar.** Erro de sintaxe vira caixa
+   vermelha no GitHub, e os problemas piores (texto sumido, seta atravessando caixa)
+   não dão erro nenhum — gere o PNG e **olhe**:
+
+   ```bash
+   npx -y @mermaid-js/mermaid-cli@11 -i diagrama.mmd -o /tmp/d.png
+   ```
+
+9. Terraform `>= 1.11`, provider AWS `~> 6.0`. Commite `.terraform.lock.hcl`.
+10. Rode `terraform fmt` antes de considerar qualquer `.tf` pronto.
 
 ## Ao criar um lab
 
