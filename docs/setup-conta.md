@@ -512,13 +512,83 @@ aws sso logout
 
 ## 4. State remoto
 
+### Por que isso vem antes de tudo
+
+O Terraform guarda num arquivo de **state** o mapa entre o que está no seu `.tf` e o que
+existe de verdade na AWS. Sem ele, o Terraform não sabe o que já criou — e um `destroy`
+não acha o que destruir. Num repositório de estudo isso é literalmente dinheiro: recurso
+órfão que ninguém consegue derrubar continua na fatura.
+
+Por padrão esse arquivo fica na sua máquina. Aqui ele vai para um bucket S3, e é isso que
+o `bootstrap` monta — **uma vez por conta**, antes de qualquer lab. Depois disso, todo
+`tf.sh init` aponta sozinho para
+`s3://tfstate-aws-certifications-<account-id>/<caminho-do-lab>/terraform.tfstate`.
+
+O `bootstrap` é o **único** módulo com state local (`bootstrap/terraform.tfstate`) —
+problema do ovo e da galinha: ele não pode guardar o state dentro do bucket que ainda
+está criando.
+
+### 4.1 Rodar
+
 ```bash
 ./scripts/tf.sh bootstrap
 ```
 
-Cria `tfstate-aws-certifications-<account-id>` com versionamento, criptografia,
-bloqueio de acesso público, política de TLS-only e expiração de versões antigas.
-Rode uma vez por conta. Detalhes em [`bootstrap/README.md`](../bootstrap/README.md).
+Passo a passo do que acontece na sua frente:
+
+| # | O que aparece                                            | O que fazer                                                    |
+| - | -------------------------------------------------------- | -------------------------------------------------------------- |
+| 1 | `==> criando bucket de state remoto`                     | Nada, é o `tf.sh` anunciando                                    |
+| 2 | `Initializing provider plugins… successfully initialized` | Nada — é só o `terraform init`, **ainda não criou nada**        |
+| 3 | O plano, com `Plan: 6 to add, 0 to change, 0 to destroy`  | **Leia**                                                        |
+| 4 | `Do you want to perform these actions?` / `Enter a value:` | Digite **`yes`** e Enter. Só `yes` vale — `y` não, Enter vazio não |
+| 5 | `Apply complete! Resources: 6 added.`                    | Pronto                                                          |
+| 6 | `✔ bootstrap concluído`                                  | A linha do `tf.sh`, só sai se tudo acima deu certo               |
+
+> **O passo 2 engana.** `Terraform has been successfully initialized!` é a mensagem do
+> `init`, não do `apply` — ela aparece mesmo quando nada é criado. Se a execução terminar
+> aí, **o bucket não existe**. O sinal de sucesso é o `Apply complete!` do passo 5.
+
+Os 6 recursos, e por que cada um (vale ler — é conteúdo do Domínio 1.2):
+
+| Recurso                      | Para quê                                                                     |
+| ---------------------------- | ----------------------------------------------------------------------------- |
+| Bucket S3                    | O state em si. Tem `prevent_destroy = true` — não sai por acidente             |
+| Versionamento                | State corrompido ou apagado dá para voltar à versão anterior                   |
+| Criptografia (SSE-S3)        | State tem valores sensíveis em texto claro; nunca deve ficar sem criptografia  |
+| Public access block          | Quatro flags fechando ACL e policy pública                                     |
+| Bucket policy TLS-only       | Nega `s3:*` quando `aws:SecureTransport = false`                               |
+| Lifecycle                    | Expira versões antigas em 90 dias para o custo não crescer para sempre         |
+
+O locking usa o lockfile nativo do S3 (`use_lockfile`), disponível a partir do Terraform
+1.11 — por isso a exigência de versão na [seção 1](#1-ferramentas-locais). Não é preciso
+tabela DynamoDB, como em tutoriais mais antigos.
+
+### 4.2 Conferir que ficou de pé
+
+**Não pule.** É a diferença entre descobrir o problema agora ou no meio da seção 5:
+
+```bash
+ls -l bootstrap/terraform.tfstate
+```
+
+```bash
+aws s3api head-bucket --bucket "tfstate-aws-certifications-$(aws sts get-caller-identity --query Account --output text)"
+```
+
+O `head-bucket` **não imprime nada** quando dá certo — silêncio é sucesso.
+
+### 4.3 Se der errado
+
+| Sintoma                                                        | Causa                                                                | Conserto                                                                        |
+| -------------------------------------------------------------- | -------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| Terminou logo depois de `successfully initialized`, sem `Apply complete!` | O `yes` não foi digitado                                    | Rode de novo e responda `yes`                                                     |
+| `NoSuchBucket` num lab ou no `guardrails`                       | O bootstrap não completou — o bucket nunca existiu                    | Rode o bootstrap, confira com o 4.2, e só então volte                             |
+| `BucketAlreadyOwnedByYou`                                       | O bucket existe, mas o `bootstrap/terraform.tfstate` local sumiu      | Importe em vez de recriar (ver [`bootstrap/README.md`](../bootstrap/README.md))    |
+| `The security token included in the request is invalid`         | Sessão SSO expirada                                                   | `aws sso login` ([3.4](#34-renovar-a-sessão-você-vai-fazer-isso-todo-dia))         |
+| Bucket criado numa região e procurado em outra                  | `AWS_REGION` mudou entre as execuções                                 | `echo $AWS_REGION` deve dizer `us-east-1` sempre                                  |
+
+Mais detalhes em [`bootstrap/README.md`](../bootstrap/README.md).
 
 ## 5. Guarda-corpos de custo (antes de qualquer lab)
 
