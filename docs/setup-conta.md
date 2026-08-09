@@ -67,6 +67,7 @@ brew install terraform-linters/tap/tflint
 | `jq`        | Filtrar saída JSON do AWS CLI nas verificações manuais       | Nada quebra, só dá mais trabalho |
 
 > **Dois cuidados com o `brew`:**
+>
 > 1. `terraform` e `tflint` vêm de tap próprio (`hashicorp/tap` e
 >    `terraform-linters/tap`). No core existem só `opentofu` e nada de tflint.
 > 2. `brew install` com vários pacotes **aborta inteiro** se um nome não existir —
