@@ -30,6 +30,8 @@ override.tf.json
 .env
 .env.*
 !.env.example
+.envrc
+.direnv/
 credentials
 *.pem
 *.ppk
