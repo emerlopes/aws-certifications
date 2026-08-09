@@ -14,7 +14,7 @@ aplicável e destruível por comando.
 
 ## Estrutura
 
-```
+```text
 .
 ├── bootstrap/                # Bucket S3 de state remoto (rodar uma vez)
 ├── guardrails/               # Budget, alertas e detecção de anomalia de custo
