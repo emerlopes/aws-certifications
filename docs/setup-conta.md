@@ -67,6 +67,7 @@ brew install terraform-linters/tap/tflint
 | `jq`        | Filtrar saída JSON do AWS CLI nas verificações manuais       | Nada quebra, só dá mais trabalho |
 
 > **Dois cuidados com o `brew`:**
+>
 > 1. `terraform` e `tflint` vêm de tap próprio (`hashicorp/tap` e
 >    `terraform-linters/tap`). No core existem só `opentofu` e nada de tflint.
 > 2. `brew install` com vários pacotes **aborta inteiro** se um nome não existir —
@@ -112,13 +113,13 @@ repositório são justamente onde o Free plan trava.
 
 ### O que o Free plan custa a você aqui
 
-|                                                 | Free plan                                             | Paid plan                            |
-| ----------------------------------------------- | ----------------------------------------------------- | ------------------------------------ |
-| Crédito de sign-up                              | US$ 100                                               | US$ 100                              |
-| Free tier mensal (~30 serviços)                 | Sim                                                   | Sim                                  |
-| Acesso a todos os serviços                      | **Não** — bloqueia o que pode consumir crédito rápido | Sim                                  |
-| Organizations / Control Tower / Identity Center | **Dispara upgrade automático**                        | Sim                                  |
-| Quando o crédito zera (ou em 6 meses)           | **A conta é encerrada**                               | Conta continua, vira pay-as-you-go   |
+|                                                 | Free plan                                             | Paid plan                          |
+| ----------------------------------------------- | ----------------------------------------------------- | ---------------------------------- |
+| Crédito de sign-up                              | US$ 100                                               | US$ 100                            |
+| Free tier mensal (~30 serviços)                 | Sim                                                   | Sim                                |
+| Acesso a todos os serviços                      | **Não** — bloqueia o que pode consumir crédito rápido | Sim                                |
+| Organizations / Control Tower / Identity Center | **Dispara upgrade automático**                        | Sim                                |
+| Quando o crédito zera (ou em 6 meses)           | **A conta é encerrada**                               | Conta continua, vira pay-as-you-go |
 
 Três motivos concretos:
 
@@ -183,23 +184,119 @@ repositório inteiro que exige o root.
    **não dá para trocar depois** sem deletar a instância inteira. Use a mesma do
    `AWS_REGION` dos labs.
 
-### 3.2 Criar o usuário e dar acesso à conta
+### 3.2 Criar grupo, usuário e dar acesso à conta
 
-Ainda no Identity Center:
+Ainda no Identity Center, **ainda logado como root**. São peças separadas — e a separação
+não é burocracia: é exatamente o modelo que o exame cobra.
 
-1. **Users** → **Add user**. O **Username** é o que você vai digitar no login e **não
-   dá para mudar depois** — use algo estável, tipo `emerson`. No **Email address**,
-   **não repita o e-mail do root** (o porquê está logo abaixo). Nome e sobrenome são
-   obrigatórios. Chega um convite de `no-reply@signin.aws.com` — **abra e defina a
-   senha**, senão o login do passo 3.3 falha. O convite expira em 7 dias; se perder,
-   **Reset password** reenvia.
-2. **Permission sets** → **Create permission set** → **Predefined** →
-   **AdministratorAccess**. É o mínimo prático para os labs, que criam VPC, IAM,
-   Organizations e S3. Dá para restringir depois.
-3. **AWS accounts** → marque sua conta → **Assign users or groups** → escolha o
-   usuário e o permission set criados acima.
-4. No **Dashboard**, copie a **AWS access portal URL** — algo como
-   `https://d-xxxxxxxxxx.awsapps.com/start`. É a resposta da pergunta `SSO start URL`.
+| O quê           | No Identity Center | Responde a                             |
+| --------------- | ------------------ | -------------------------------------- |
+| **Identidade**  | Users              | _quem_ é você                          |
+| **Agrupamento** | Groups             | _a que time_ você pertence             |
+| **Permissão**   | Permission sets    | _o que_ pode ser feito                 |
+| **Atribuição**  | AWS accounts       | _onde_ — em qual conta essa dupla vale |
+
+**A ordem abaixo importa.** O assistente de criação de usuário só **seleciona** grupos
+que já existem — ele não cria. Criando o grupo primeiro, você passa por cada tela uma
+vez só; na ordem inversa, você cria o usuário, descobre que não tem grupo para marcar, e
+volta atrás.
+
+#### 1. Criar o grupo (Groups → Create group)
+
+**Groups** → **Create group**:
+
+| Campo                  | O que preencher                                                    |
+| ---------------------- | ------------------------------------------------------------------ |
+| **Group name**         | `Admins`                                                           |
+| **Description**        | Opcional. `Acesso administrativo aos labs` serve.                  |
+| **Add users to group** | Vazio — o usuário ainda não existe. Ele entra no grupo no passo 2. |
+
+**Create group** e siga.
+
+> **Por que não ir direto no usuário:** porque a permissão vai ser atribuída **ao
+> grupo**, não a você. Atribuir permission set direto ao usuário é o anti-padrão que o
+> exame cobra — e aqui ele também sai caro em trabalho: a partir do lab 09 são quatro
+> contas. Com grupo, liberar todas é **uma atribuição por conta**; sem grupo, é uma por
+> conta **por pessoa**, e cada usuário novo (o lab 04 pede um) recomeça do zero. Dois
+> cliques agora evitam a migração depois.
+
+#### 2. Criar o usuário (Users → Add user)
+
+O assistente tem três etapas. **Só a primeira tem campo para preencher** — a segunda é
+uma marcação e a terceira é confirmação.
+
+**Etapa 1 — Especificar detalhes do usuário**
+
+| Campo                     | Obrigatório | Por que ele pede                                                                                                                                                             |
+| ------------------------- | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Username**              | Sim         | É o que você digita no login do portal. **Não dá para mudar depois** — escolha algo estável (`username`), não `teste1`.                                                      |
+| **Password**              | Escolha     | Duas opções (abaixo). O padrão — mandar e-mail — é o que você quer.                                                                                                          |
+| **Email address**         | Sim         | Para onde vai o convite, o reset de senha e a verificação. Precisa ser **único no diretório** e **diferente do root** — ver [o porquê](#por-que-o-e-mail-tem-que-ser-outro). |
+| **Confirm email address** | Sim         | Só repetição. Erro de digitação aqui = convite que nunca chega e você sem saber por quê.                                                                                     |
+| **First / Last name**     | Sim         | Não é decoração — ver a nota abaixo.                                                                                                                                         |
+| **Display name**          | Não         | O console preenche a partir do nome e sobrenome. Deixe como está.                                                                                                            |
+| Atributos extras          | Não         | `Microsoft 365 immutable ID`, telefone, endereço, cargo… servem para SSO em aplicações de terceiros. Não usamos nada disso aqui — ignore.                                    |
+
+Nas duas opções de senha:
+
+- **Send an email to this user with password setup instructions** _(padrão, use esta)_ —
+  chega um convite de `no-reply@signin.aws.com` com assunto
+  _"Invitation to join AWS IAM Identity Center"_. **Abra e defina a senha**, senão o
+  login do passo 3.3 falha. Expira em **7 dias**; se perder, **Reset password** reenvia.
+- **Generate a one-time password** — o console te mostra a senha na tela para você
+  repassar. Serve se o e-mail estiver demorando ou caindo em spam. Se usar esta, o
+  e-mail ainda vai precisar ser verificado depois.
+
+> **Por que nome e sobrenome são obrigatórios:** o Identity Center trata esses campos
+> como **atributos da identidade**, não como enfeite de tela. Eles são o que o SCIM
+> sincroniza quando o diretório vem de um IdP externo (Entra ID, Okta), e são o que
+> alimenta o **Attributes for access control** — o recurso que transforma atributo do
+> usuário em session tag e deixa você escrever `${aws:PrincipalTag/Department}` dentro
+> da política do permission set. Isso é ABAC, e é conteúdo direto da task statement 1.2.
+> Preencher direito agora é o que te permite brincar com isso depois sem recriar usuário.
+
+**Etapa 2 — Adicionar usuário a grupos**
+
+O console chama de opcional; **aqui não é**. Marque o `Admins` criado no passo 1 e
+**Next**.
+
+Se a lista aparecer vazia, você pulou o passo 1 — esta tela só seleciona grupos que já
+existem. Não precisa abortar: termine o usuário e depois adicione-o pelo **Groups** →
+`Admins` → **Add users**.
+
+**Etapa 3 — Revisar e adicionar usuário**
+
+Só conferência. Releia o **Username** e o **Email address** antes de confirmar: o e-mail
+dá trabalho para trocar depois, e o username não troca — nem depois, nem nunca.
+**Add user** e pronto.
+
+#### 3. Criar o permission set
+
+**Permission sets** → **Create permission set** → **Predefined permission set** →
+**AdministratorAccess**. É o mínimo prático para os labs, que criam VPC, IAM,
+Organizations e S3. Dá para restringir depois.
+
+A duração da sessão (`Session duration`) vem em 1 hora. Pode subir para 4 ou 8 se cansar
+de renovar — mas note que quem renova é o `aws sso login`, não o Terraform: um `apply`
+longo que estoure a sessão falha no meio.
+
+#### 4. Atribuir o grupo à conta
+
+**AWS accounts** → marque sua conta → **Assign users or groups** → aba **Groups** →
+`Admins` → **Next** → marque `AdministratorAccess` → **Submit**.
+
+Repare que você atribui **o grupo**, não o usuário — mesmo tendo um usuário só. É essa a
+peça que escala: no lab 09, cada conta nova recebe a mesma atribuição de `Admins`, e
+qualquer usuário que entrar no grupo herda o acesso a todas elas sem você tocar em
+atribuição nenhuma.
+
+Sem este passo o usuário existe, o grupo existe, o permission set existe — e o portal
+abre vazio. É o erro mais comum aqui.
+
+#### 5. Copiar a URL do portal
+
+No **Dashboard**, copie a **AWS access portal URL** — algo como
+`https://d-xxxxxxxxxx.awsapps.com/start`. É a resposta da pergunta `SSO start URL`.
 
 #### Por que o e-mail tem que ser outro
 
@@ -226,24 +323,58 @@ três motivos, em ordem de quando eles te mordem:
 Convenção que resolve os três de uma vez (funciona em Gmail e Google Workspace; a maioria
 dos provedores modernos também suporta `+`):
 
-| Identidade                       | E-mail                        |
-| -------------------------------- | ----------------------------- |
-| root da conta de gerência        | `voce+aws-root@gmail.com`     |
-| usuário do Identity Center       | `voce+aws-labs@gmail.com`     |
-| root de `sandbox-1` (lab 09)     | `voce+aws-sandbox1@gmail.com` |
-| root de `log-archive` (lab 09)   | `voce+aws-logs@gmail.com`     |
+| Identidade                     | E-mail                        |
+| ------------------------------ | ----------------------------- |
+| root da conta de gerência      | `voce+aws-root@gmail.com`     |
+| usuário do Identity Center     | `voce+aws-labs@gmail.com`     |
+| root de `sandbox-1` (lab 09)   | `voce+aws-sandbox1@gmail.com` |
+| root de `log-archive` (lab 09) | `voce+aws-logs@gmail.com`     |
 
 Tudo cai na mesma caixa de entrada e o filtro por destinatário separa.
 
 > **Seja honesto sobre o que isso dá:** separação de **endereço** — que é o que a AWS
 > exige e o que te deixa filtrar. Não é separação de **caixa**. Quem entrar no seu Gmail
-> chega no root do mesmo jeito. Por isso **MFA no root não é opcional**: ative agora,
-> enquanto está logado como root neste passo, em **IAM → Security credentials → MFA**.
+> chega no root do mesmo jeito. Por isso **MFA no root não é opcional** — está na lista
+> de tarefas do root, logo abaixo.
 
 Se a conta já foi criada com um endereço genérico no root, não precisa recriar nada:
 crie o usuário do Identity Center num alias, ative o MFA do root e siga. Trocar o e-mail
 do root depois é possível (**Account settings → Account → Email address**), mas é
 cirurgia que dá para deixar para outro dia.
+
+#### Até aqui é root. Daqui em diante, não.
+
+Aproveite que ainda está logado como root e feche a lista de tarefas dele **de uma vez**:
+
+- [x] Habilitar o Identity Center (3.1)
+- [x] Criar grupo, usuário, permission set e atribuição (3.2)
+- [ ] **Ativar MFA no root** — **IAM → Security credentials → Multi-factor authentication**.
+      Não pule: o root ignora qualquer SCP, permission boundary ou política que você
+      escrever nos labs. É a única identidade que não dá para conter.
+- [ ] Upgrade do plano para Paid, se ainda não fez ([seção 2](#2-plano-da-conta-escolha-o-paid))
+- [ ] Conferir **Account settings → IAM user and role access to billing information**.
+      Contas novas costumam já vir com isso ligado; se estiver desligado, o seu usuário
+      do Identity Center leva _access denied_ na [seção 5](#5-guarda-corpos-de-custo-antes-de-qualquer-lab)
+      (cost allocation tags, Cost Explorer) **mesmo tendo `AdministratorAccess`** — porque
+      billing não obedece só ao IAM.
+
+Feito isso, **saia do root**. Todo o resto do repositório — passo 3.3 em diante,
+`bootstrap`, `guardrails`, os 32 labs — é com o usuário do Identity Center. Inclusive o
+console: você entra pela **AWS access portal URL** do passo anterior, não por
+`console.aws.amazon.com` com e-mail e senha.
+
+Volte ao root só para o que ninguém mais faz — e nenhuma dessas aparece em lab algum:
+
+| Situação                                                         | Por que só o root                       |
+| ---------------------------------------------------------------- | --------------------------------------- |
+| Mudar e-mail, nome ou senha da conta; mudar o plano de suporte   | São propriedades da conta, não do IAM   |
+| Encerrar a conta                                                 | Idem                                    |
+| Ativar o acesso do IAM ao billing                                | Toggle que só o root enxerga            |
+| Destravar lockout (política de bucket ou de IAM que fechou tudo) | O root não é barrado por política       |
+| Sair de uma Organization                                         | Operação da conta, feita pelo root dela |
+
+Regra prática: **se você está como root e não está numa dessas linhas, algo saiu do
+trilho.** Volte para o portal.
 
 ### 3.3 Configurar o perfil local
 
@@ -253,21 +384,21 @@ aws configure sso --profile aws-labs
 
 O comando faz as perguntas nesta ordem:
 
-| Pergunta                       | Resposta                                                  |
-| ------------------------------ | --------------------------------------------------------- |
-| `SSO session name`             | `aws-labs` — apelido local, não existe na AWS               |
-| `SSO start URL`                | a URL copiada no passo 3.2.4                                |
-| `SSO region`                   | `us-east-1` — a home region escolhida em 3.1                |
-| `SSO registration scopes`      | Enter (aceita o padrão)                                     |
+| Pergunta                  | Resposta                                      |
+| ------------------------- | --------------------------------------------- |
+| `SSO session name`        | `aws-labs` — apelido local, não existe na AWS |
+| `SSO start URL`           | a URL copiada no passo 3.2.5                  |
+| `SSO region`              | `us-east-1` — a home region escolhida em 3.1  |
+| `SSO registration scopes` | Enter (aceita o padrão)                       |
 
 Aqui ele **abre o navegador** para você confirmar um código e logar com o usuário de
 3.2.1. Autorize e volte ao terminal:
 
-| Pergunta                   | Resposta                             |
-| -------------------------- | ------------------------------------ |
-| `CLI default client Region`| `us-east-1`                          |
-| `CLI default output format`| `json`                               |
-| `CLI profile name`         | `aws-labs` — precisa bater com `--profile` |
+| Pergunta                    | Resposta                                   |
+| --------------------------- | ------------------------------------------ |
+| `CLI default client Region` | `us-east-1`                                |
+| `CLI default output format` | `json`                                     |
+| `CLI profile name`          | `aws-labs` — precisa bater com `--profile` |
 
 Exporte na sessão de trabalho (vale colocar no `.envrc` / `.zshrc`):
 
