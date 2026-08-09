@@ -57,12 +57,67 @@
 
 ## Arquitetura
 
-```
-diagrama ASCII ou link para assets/diagrama.png
+<!-- OBRIGATÓRIO em todo lab, e SEMPRE em Mermaid — não ASCII, não imagem.
+     O GitHub renderiza bloco ```mermaid nativamente, e o diagrama continua
+     versionável: um diff de arquitetura vira um diff de texto legível.
+
+     Regras do diagrama:
+
+     1. `flowchart TB`. Agrupe por camada (subnet, conta, região) com `subgraph`,
+        não por serviço.
+     2. Rotule o nó com o QUE ELE CUSTA e o QUE ELE PROVA, não só o nome do
+        serviço. "Interface endpoints · 3 × 2 AZs × US$ 0,01/h" ensina; "VPC
+        Endpoint" não ensina nada.
+     3. Desenhe o que NÃO existe. O ponto do lab quase sempre é uma ausência —
+        um nó tracejado "NAT Gateway NÃO EXISTE neste desenho" vale mais que
+        três nós presentes.
+     4. Desenhe o caminho que FALHA, em vermelho, com `x--x` e o comando que
+        você roda no roteiro para provar (ex.: `curl example.com` → timeout).
+     5. Use `classDef` com semântica de custo, as mesmas cores em todo lab:
+        verde = grátis · laranja = pago por hora/AZ · vermelho tracejado =
+        ausente ou bloqueado.
+     6. Se a ordem das camadas sair errada, force com links invisíveis (`~~~`)
+        entre um nó de cada camada. Lembre que eles CONTAM para o índice do
+        `linkStyle` — coloque-os por último.
+     7. NUNCA use `<` ou `>` dentro de um label, nem como placeholder. O label do
+        Mermaid é HTML: `<Serviço caro>` vira uma tag desconhecida e o texto
+        SOME do desenho, sem erro nenhum. Use `→`, `-` ou CAIXA-ALTA.
+     8. Antes de commitar, confirme que renderiza — e OLHE o resultado, porque
+        os problemas ruins (texto sumido, seta atravessando caixa) não dão erro:
+        npx -y @mermaid-js/mermaid-cli@11 -i diagrama.mmd -o /tmp/d.png
+        Erro de sintaxe no GitHub vira uma caixa vermelha no lugar do desenho.
+
+     Veja o lab-01-vpc-base como referência de forma.
+     Logo abaixo do diagrama, uma ou duas frases dizendo por onde LER o desenho —
+     o que é diferente da arquitetura ingênua que a maioria desenharia. -->
+
+```mermaid
+flowchart TB
+    subgraph CAMADA_A["nome da camada · CIDR ou escopo"]
+        N1["Serviço<br/>o que ele custa<br/>o que ele prova"]
+    end
+
+    subgraph CAMADA_B["outra camada"]
+        N2["..."]
+    end
+
+    AUSENTE["SERVICO-CARO<br/>NÃO EXISTE neste desenho"]
+    FORA(["Internet / outra conta / on-premises"])
+
+    N1 -->|"protocolo · porta"| N2
+    N1 x--x|"comando → erro esperado"| FORA
+
+    classDef gratis fill:#e8f5e9,stroke:#2e7d32,color:#1b5e20
+    classDef pago fill:#fff3e0,stroke:#ef6c00,color:#e65100
+    classDef ausente fill:#ffebee,stroke:#c62828,color:#b71c1c,stroke-dasharray:5 5
+    class N1 gratis
+    class N2 pago
+    class AUSENTE,FORA ausente
+    linkStyle 1 stroke:#c62828,stroke-width:2px
 ```
 
-<!-- Marque no diagrama o que é o ponto do lab (ex.: "não existe NAT aqui").
-     O diagrama tem que deixar óbvio o que é diferente do desenho ingênuo. -->
+<!-- Uma ou duas frases: leia o desenho pelo que ele NÃO tem / pelo caminho X
+     em vez do caminho Y. -->
 
 ## Executar
 

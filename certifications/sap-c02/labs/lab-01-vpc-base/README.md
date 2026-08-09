@@ -89,27 +89,61 @@ interface endpoint.
 
 ## Arquitetura
 
-```
-                          VPC 10.1.0.0/16
-  ┌──────────────────────────────────────────────────────────────┐
-  │                                                              │
-  │  público    10.1.0.0/20    10.1.16.0/20      → IGW           │
-  │  ─────────────────────────────────────────                   │
-  │  privado    10.1.64.0/20   10.1.80.0/20                      │
-  │      └── ENIs dos interface endpoints (ssm, ssmmessages,     │
-  │          ec2messages) + DNS privado         ← os "ramais"    │
-  │  ─────────────────────────────────────────                   │
-  │  isolado    10.1.128.0/20  10.1.144.0/20                     │
-  │      └── EC2 t4g.nano   ← SG sem ingress, sem IP público,    │
-  │                            route table sem rota default      │
-  │                                                              │
-  │  gateway endpoints: S3, DynamoDB (prefix list nas 3 RTs)     │
-  └──────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TB
+    ADMIN["Seu laptop"]
+    NET(["Internet"])
 
-  Não existe NAT Gateway neste desenho. Nenhum.
-  A instância fica na subnet isolada da PRIMEIRA AZ; os endpoints vivem
-  nas subnets privadas das DUAS AZs.
+    subgraph REGION["Região us-east-1"]
+        SSMSVC["Systems Manager<br/>plano de controle"]
+        S3["S3 · bucket do lab<br/>hello.txt"]
+        DDB["DynamoDB"]
+        NAT["NAT Gateway<br/>NÃO EXISTE neste desenho"]
+
+        subgraph VPC["VPC 10.1.0.0/16 · enable_dns_support + enable_dns_hostnames"]
+            subgraph TPUB["pública · 10.1.0.0/20 + 10.1.16.0/20"]
+                IGW["Internet Gateway<br/>única RT com 0.0.0.0/0<br/>subnets vazias neste lab"]
+            end
+
+            subgraph TPRIV["privada · 10.1.64.0/20 + 10.1.80.0/20"]
+                VPCE["Interface endpoints<br/>ssm · ssmmessages · ec2messages<br/>1 ENI por endpoint POR AZ + private_dns_enabled<br/>3 × 2 AZs × US$ 0,01/h = US$ 1,44/dia"]
+            end
+
+            subgraph TISO["isolada · 10.1.128.0/20 + 10.1.144.0/20"]
+                EC2["EC2 t4g.nano · só na AZ a<br/>sem IP público<br/>SG sem nenhum ingress"]
+                RTISO["route table isolated<br/>10.1.0.0/16 → local<br/>pl-s3 · pl-dynamodb → vpce<br/>NENHUMA rota 0.0.0.0/0"]
+            end
+
+            GWEP["Gateway endpoints S3 + DynamoDB<br/>US$ 0 · é uma rota, não uma ENI<br/>associados às 3 route tables"]
+        end
+    end
+
+    ADMIN -->|"HTTPS · sem porta 22"| SSMSVC
+    EC2 -->|"agente liga de dentro<br/>egress 443"| VPCE
+    VPCE -->|"PrivateLink"| SSMSVC
+    EC2 --> RTISO --> GWEP
+    GWEP --> S3
+    GWEP --> DDB
+    EC2 x--x|"curl example.com<br/>timeout"| NET
+    IGW --> NET
+
+    %% links invisíveis: só forçam a ordem pública → privada → isolada
+    IGW ~~~ VPCE
+    VPCE ~~~ EC2
+
+    classDef gratis fill:#e8f5e9,stroke:#2e7d32,color:#1b5e20
+    classDef pago fill:#fff3e0,stroke:#ef6c00,color:#e65100
+    classDef ausente fill:#ffebee,stroke:#c62828,color:#b71c1c,stroke-dasharray:5 5
+    class GWEP,RTISO gratis
+    class VPCE pago
+    class NAT,NET ausente
+    linkStyle 7 stroke:#c62828,stroke-width:2px
 ```
+
+Leia o desenho pelo que **não** tem: nenhum NAT Gateway, nenhuma rota `0.0.0.0/0`
+saindo da subnet isolada, nenhuma regra de ingress na instância. Os dois caminhos
+que a EC2 usa são o verde (rota, de graça) e o laranja (ENI, pago por AZ) — a
+distinção que o lab inteiro existe para gravar.
 
 ## Executar
 
