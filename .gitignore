@@ -61,3 +61,5 @@ build/
 # --- Scratch ---
 tmp/
 scratch/
+
+guardrails/terraform.tfvars
