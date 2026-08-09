@@ -38,6 +38,11 @@ CMD="${1:-}"; shift || true
 
 LAB_DIR=""; REGION="$DEFAULT_REGION"; PASSTHRU=()
 
+# ATENÇÃO ao expandir PASSTHRU: o bash 3.2 (o que vem no macOS) trata "${arr[@]}" de
+# array VAZIO como variável não definida e aborta por causa do `set -u`. Por isso todo
+# uso abaixo é ${PASSTHRU[@]+"${PASSTHRU[@]}"} — expande para nada quando vazio e
+# preserva o aspeamento dos argumentos quando não. Não "simplifique" de volta.
+
 case "$CMD" in
   bootstrap|list|orphans) ;;
   fmt) LAB_DIR="${1:-.}"; shift || true ;;
@@ -116,7 +121,7 @@ cmd_bootstrap() {
   info "criando bucket de state remoto"
   terraform -chdir="$REPO_ROOT/bootstrap" init -input=false
   terraform -chdir="$REPO_ROOT/bootstrap" apply -input=false \
-    -var="aws_region=${REGION}" "${PASSTHRU[@]}"
+    -var="aws_region=${REGION}" ${PASSTHRU[@]+"${PASSTHRU[@]}"}
   ok "bootstrap concluído — agora todo lab usa backend S3"
 }
 
@@ -155,13 +160,13 @@ cmd_lint() {
 cmd_plan() {
   resolve_lab; ensure_init
   # shellcheck disable=SC2046
-  terraform -chdir="$REPO_ROOT/$LAB_DIR" plan -input=false $(tf_vars) "${PASSTHRU[@]}"
+  terraform -chdir="$REPO_ROOT/$LAB_DIR" plan -input=false $(tf_vars) ${PASSTHRU[@]+"${PASSTHRU[@]}"}
 }
 
 cmd_apply() {
   resolve_lab; ensure_init
   # shellcheck disable=SC2046
-  terraform -chdir="$REPO_ROOT/$LAB_DIR" apply -input=false $(tf_vars) "${PASSTHRU[@]}"
+  terraform -chdir="$REPO_ROOT/$LAB_DIR" apply -input=false $(tf_vars) ${PASSTHRU[@]+"${PASSTHRU[@]}"}
   ok "apply concluído"
   warn "lembre de destruir: ./scripts/tf.sh destroy $LAB_DIR"
 }
@@ -174,7 +179,7 @@ cmd_output() {
 cmd_destroy() {
   resolve_lab; ensure_init
   # shellcheck disable=SC2046
-  terraform -chdir="$REPO_ROOT/$LAB_DIR" destroy $(tf_vars) "${PASSTHRU[@]}"
+  terraform -chdir="$REPO_ROOT/$LAB_DIR" destroy $(tf_vars) ${PASSTHRU[@]+"${PASSTHRU[@]}"}
   ok "destruído"
 }
 
