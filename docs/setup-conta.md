@@ -93,11 +93,61 @@ Se o seu for mais antigo: `brew upgrade terraform`.
 
 ## 2. Perfil AWS
 
-Nunca use credenciais de root nem access key de longa duração. Configure SSO:
+Nunca use credenciais de root nem access key de longa duração. O acesso é via
+**IAM Identity Center** (o antigo "AWS SSO" — o exame já usa o nome novo).
+
+> **O `aws configure sso` não funciona numa conta recém-criada.** Ele pede uma
+> _start URL_ que só existe depois que o Identity Center foi habilitado no Console.
+> Se você rodar o comando antes disso, trava na primeira pergunta sem ter o que
+> responder. Faça 2.1 e 2.2 primeiro.
+
+### 2.1 Habilitar o Identity Center (Console, uma vez por conta)
+
+Logue no [Console](https://console.aws.amazon.com) como **root** — a única etapa do
+repositório inteiro que exige o root.
+
+1. Busque **IAM Identity Center** → **Enable**.
+2. Escolha a região **`us-east-1`**. Essa é a _home region_ do Identity Center e
+   **não dá para trocar depois** sem deletar a instância inteira. Use a mesma do
+   `AWS_REGION` dos labs.
+
+### 2.2 Criar o usuário e dar acesso à conta
+
+Ainda no Identity Center:
+
+1. **Users** → **Add user**. Preencha e-mail, nome e sobrenome. Chega um convite por
+   e-mail — **abra e defina a senha**, senão o login do passo 2.3 falha.
+2. **Permission sets** → **Create permission set** → **Predefined** →
+   **AdministratorAccess**. É o mínimo prático para os labs, que criam VPC, IAM,
+   Organizations e S3. Dá para restringir depois.
+3. **AWS accounts** → marque sua conta → **Assign users or groups** → escolha o
+   usuário e o permission set criados acima.
+4. No **Dashboard**, copie a **AWS access portal URL** — algo como
+   `https://d-xxxxxxxxxx.awsapps.com/start`. É a resposta da pergunta `SSO start URL`.
+
+### 2.3 Configurar o perfil local
 
 ```bash
 aws configure sso --profile aws-labs
 ```
+
+O comando faz as perguntas nesta ordem:
+
+| Pergunta                       | Resposta                                                  |
+| ------------------------------ | --------------------------------------------------------- |
+| `SSO session name`             | `aws-labs` — apelido local, não existe na AWS               |
+| `SSO start URL`                | a URL copiada no passo 2.2.4                                |
+| `SSO region`                   | `us-east-1` — a home region escolhida em 2.1                |
+| `SSO registration scopes`      | Enter (aceita o padrão)                                     |
+
+Aqui ele **abre o navegador** para você confirmar um código e logar com o usuário de
+2.2.1. Autorize e volte ao terminal:
+
+| Pergunta                   | Resposta                             |
+| -------------------------- | ------------------------------------ |
+| `CLI default client Region`| `us-east-1`                          |
+| `CLI default output format`| `json`                               |
+| `CLI profile name`         | `aws-labs` — precisa bater com `--profile` |
 
 Exporte na sessão de trabalho (vale colocar no `.envrc` / `.zshrc`):
 
@@ -110,6 +160,14 @@ Valide:
 
 ```bash
 aws sts get-caller-identity
+```
+
+Deve sair um JSON com `Account`, `UserId` e `Arn`. Se vier
+`The SSO session has expired`, é só renovar — a sessão dura poucas horas e expira
+todo dia de estudo:
+
+```bash
+aws sso login --profile aws-labs
 ```
 
 ## 3. State remoto
