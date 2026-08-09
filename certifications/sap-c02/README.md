@@ -13,12 +13,12 @@
 
 ## Peso dos domínios
 
-| Domínio | Peso | Labs |
-| --- | --- | --- |
-| 1 — Organizational Complexity | 26% | 01–11 |
-| 2 — Design New Solutions | 29% | 12–21 |
-| 3 — Continuous Improvement | 25% | 22–27 |
-| 4 — Migration & Modernization | 20% | 28–32 |
+| Domínio                       | Peso | Labs  |
+| ----------------------------- | ---- | ----- |
+| 1 — Organizational Complexity | 26%  | 01–11 |
+| 2 — Design New Solutions      | 29%  | 12–21 |
+| 3 — Continuous Improvement    | 25%  | 22–27 |
+| 4 — Migration & Modernization | 20%  | 28–32 |
 
 ## Rodar um lab
 
