@@ -8,7 +8,7 @@ isso vira uma fatura desagradável.
 
 1. **Nada dorme de pé.** Terminou o lab: `./scripts/tf.sh destroy <lab-dir>`.
 2. **Toda stack nasce com `Ephemeral=true`.** É o que permite caçar órfãos.
-3. **`guardrails` antes do primeiro lab.** Ver [setup-conta.md](setup-conta.md#4-guarda-corpos-de-custo-antes-de-qualquer-lab).
+3. **`guardrails` antes do primeiro lab.** Ver [setup-conta.md](setup-conta.md#5-guarda-corpos-de-custo-antes-de-qualquer-lab).
 
 ## Os vilões (preço aproximado, us-east-1)
 
