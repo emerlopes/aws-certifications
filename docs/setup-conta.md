@@ -20,8 +20,16 @@ instale primeiro:
 
 ### Obrigatórias
 
+O `terraform` **não está no Homebrew core** — a HashiCorp mantém o próprio tap desde
+a mudança de licença. O core só tem o `opentofu`. Use o tap oficial (o `brew install`
+faz o tap sozinho):
+
 ```bash
-brew install terraform awscli
+brew install hashicorp/tap/terraform
+```
+
+```bash
+brew install awscli
 ```
 
 ```bash
@@ -41,18 +49,32 @@ não deixa óbvio o que faltou.
 ### Opcionais
 
 ```bash
-brew install tflint checkov infracost jq
+brew install checkov infracost jq
 ```
 
-| Ferramenta  | Para quê                                                     | Se faltar                    |
-| ----------- | ------------------------------------------------------------ | ---------------------------- |
-| `tflint`    | Lint de Terraform                                            | `tf.sh lint` avisa e segue   |
-| `checkov`   | Scan de segurança dos `.tf` (vira estudo do Domínio 2.3/3.2) | `tf.sh lint` pula essa etapa |
-| `infracost` | Estimativa de custo antes do `apply`                         | `tf.sh cost` não roda        |
+O `tflint` **não está no Homebrew core** — vem de um tap próprio, então é um
+comando separado (o `brew install` faz o tap sozinho):
+
+```bash
+brew install terraform-linters/tap/tflint
+```
+
+| Ferramenta  | Para quê                                                     | Se faltar                        |
+| ----------- | ------------------------------------------------------------ | -------------------------------- |
+| `tflint`    | Lint de Terraform                                            | `tf.sh lint` avisa e segue       |
+| `checkov`   | Scan de segurança dos `.tf` (vira estudo do Domínio 2.3/3.2) | `tf.sh lint` pula essa etapa     |
+| `infracost` | Estimativa de custo antes do `apply`                         | `tf.sh cost` não roda            |
 | `jq`        | Filtrar saída JSON do AWS CLI nas verificações manuais       | Nada quebra, só dá mais trabalho |
 
-Nenhuma das três bloqueia nada — o `tf.sh` detecta a ausência e avisa em vez de falhar.
-Instale quando quiser; o `checkov` em especial é útil a partir da semana 6.
+> **Dois cuidados com o `brew`:**
+> 1. `terraform` e `tflint` vêm de tap próprio (`hashicorp/tap` e
+>    `terraform-linters/tap`). No core existem só `opentofu` e nada de tflint.
+> 2. `brew install` com vários pacotes **aborta inteiro** se um nome não existir —
+>    nenhum dos outros é instalado. Se um comando falhar, confira o que realmente
+>    entrou com `brew list`.
+
+Nenhuma das quatro bloqueia nada — o `tf.sh` detecta a ausência e avisa em vez de
+falhar. Instale quando quiser; o `checkov` em especial é útil a partir da semana 6.
 
 Depois do `tflint`, rode uma vez para baixar os plugins:
 
