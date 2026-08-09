@@ -522,25 +522,125 @@ Rode uma vez por conta. Detalhes em [`bootstrap/README.md`](../bootstrap/README.
 
 ## 5. Guarda-corpos de custo (antes de qualquer lab)
 
+### Por que agora, e não depois do primeiro lab
+
+Nada aqui **impede** gasto — a AWS não tem botão de "não deixe passar de US$ 30". O que
+existe é aviso, e aviso só serve se estiver de pé **antes** do gasto acontecer:
+
+- **Budget e anomalia são retroativos zero.** Eles observam o que acontece a partir do
+  momento em que existem. Um NAT Gateway esquecido na semana 1 só vira e-mail se o
+  alerta já existia na semana 1.
+- **Cost allocation tag não backfilla.** Este é o pega maior: a tag só classifica o
+  custo **gerado depois** de você ativá-la no console. Ativar na semana 3 significa que
+  os labs 01–08 nunca terão custo por lab no Cost Explorer — e custo por lab é conteúdo
+  de estudo aqui (Domínios 1.5, 2.6 e 3.5), não curiosidade.
+- **Cost Explorer demora ~24h** para começar a popular. Se você ativar hoje e rodar o
+  primeiro lab hoje, os números só aparecem amanhã.
+
+Some a isso que esta stack é a única **permanente** do repositório (`Ephemeral = false`,
+ver [`guardrails/main.tf`](../guardrails/main.tf)): ela não é destruída no fim da sessão
+e não aparece no `tf.sh orphans`. Sobe uma vez e fica.
+
+### 5.1 Criar o arquivo de variáveis
+
 ```bash
 cp guardrails/terraform.tfvars.example guardrails/terraform.tfvars
 ```
 
-Edite o e-mail e o teto mensal, então:
+**O que esse comando faz:** cria a sua cópia local do arquivo de respostas do Terraform.
+O `terraform.tfvars` é lido **automaticamente** pelo Terraform — é onde ficam os valores
+das variáveis declaradas no `main.tf`, sem precisar passar `-var` na linha de comando.
+
+**Por que copiar em vez de editar o original:** o [`.gitignore`](../.gitignore) ignora
+`*.tfvars` e versiona só o `*.tfvars.example`. O `.example` é o modelo que fica no Git,
+para qualquer pessoa saber quais campos existem; o `.tfvars` é seu, tem o seu e-mail
+dentro, e **nunca vai para o repositório**. Editar o `.example` direto colocaria o seu
+e-mail no commit.
+
+**Se você pular este passo, o `apply` falha** — e não é o Terraform padrão perguntando
+no terminal: o [`tf.sh`](../scripts/tf.sh) roda com `-input=false`, então variável sem
+valor vira erro seco, não pergunta:
+
+```text
+Error: No value for required variable
+The root module input variable "notification_email" is not set, and has no default value.
+```
+
+É proposital: em IaC, valor de variável mora em arquivo versionável (ou ignorável), não
+na memória de quem digitou.
+
+Agora edite o arquivo:
+
+```bash
+${EDITOR:-nano} guardrails/terraform.tfvars
+```
+
+| Variável                | Padrão      | O que colocar                                                                                                                        |
+| ----------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `notification_email`    | _(nenhum)_  | Obrigatório. O e-mail que você **realmente lê** — é para onde vão os alertas.                                                          |
+| `monthly_budget_usd`    | `30`        | O teto mensal. Escolha um número que te faria mudar de comportamento se fosse ultrapassado, não um que você ignoraria.                 |
+| `anomaly_threshold_usd` | `5`         | Não está no `.example`; só adicione se quiser mudar. Abaixo desse impacto, a anomalia não vira e-mail (evita ruído de centavos).       |
+
+### 5.2 Aplicar
 
 ```bash
 ./scripts/tf.sh apply guardrails
 ```
 
-Isso cria budget mensal (alertas em 50/80/100% do realizado + previsão de estouro),
-tópico SNS e Cost Anomaly Detection diária. **Confirme a inscrição que chega por e-mail** —
-sem isso os alertas não saem.
+O que sobe — e por quê:
 
-Depois, no Console (não dá para automatizar):
+| Recurso                        | O que faz                                                                            | Por que existe                                                                  |
+| ------------------------------ | ------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------- |
+| **Tópico SNS** + inscrição     | Canal único de alerta, com policy deixando `budgets` e `costalerts` publicarem nele   | Um lugar só para plugar coisas depois (Slack, Lambda) sem refazer os alertas     |
+| **Budget mensal** — 50/80/100% | Avisa quando o gasto **realizado** cruza cada faixa                                   | Termômetro: 50% no dia 10 é informação diferente de 50% no dia 28                |
+| **Budget mensal** — previsão   | Avisa quando a **projeção** do mês passa de 100%                                      | É o alerta que salva: chega **antes** de estourar, não depois                    |
+| **Cost Anomaly Detection**     | Monitor por serviço, varredura diária, alerta acima do impacto configurado            | Pega o recurso esquecido em dias, não na fatura do mês seguinte                  |
 
-- **Billing → Cost Allocation Tags**: ative `Project`, `Certification` e `Lab` como
-  tags de alocação de custo. Sem isso o relatório de custo por lab não funciona.
-- **Billing → Preferências**: ative o Cost Explorer (leva ~24h para popular dados).
+Os guarda-corpos em si **não custam nada**: budget que só monitora e notifica é gratuito
+(o que a AWS cobra são _action-enabled budgets_, que executam ações como aplicar SCP — as
+duas primeiras por mês saem de graça e não é o que fazemos aqui), o Cost Anomaly
+Detection é gratuito, e o free tier do SNS cobre com folga esse volume de e-mail.
+
+O `apply` mostra o plano e **pede confirmação** — digite `yes`. Leia o plano antes: é o
+hábito que o repositório inteiro depende (ver a regra 2 do [`CLAUDE.md`](../CLAUDE.md)).
+
+### 5.3 Confirmar a inscrição do e-mail
+
+**Este passo não é opcional e é o mais esquecido.** Chega um e-mail da AWS com assunto
+_"AWS Notification - Subscription Confirmation"_ e um link **Confirm subscription**.
+Enquanto você não clicar, a inscrição fica em `PendingConfirmation` e **nada é
+entregue** por ela.
+
+Confira pelo terminal:
+
+```bash
+aws sns list-subscriptions --query "Subscriptions[?contains(TopicArn,'cost-alerts')].[Endpoint,SubscriptionArn]" --output table
+```
+
+Se a segunda coluna disser `PendingConfirmation`, o link não foi clicado. Um `arn:aws:sns:...`
+de verdade significa confirmado.
+
+> **Detalhe que confunde:** os alertas de **budget** também são enviados por e-mail
+> direto pelo AWS Budgets, sem passar pelo SNS — então eles chegam mesmo com a inscrição
+> pendente. Já os de **anomalia** só saem pelo tópico. Receber alerta de budget não é
+> prova de que está tudo configurado.
+
+### 5.4 O que ainda precisa ser feito no Console
+
+Estes dois não têm API que o Terraform cubra de forma útil — e ambos vivem no console de
+Billing, então dependem daquele toggle de acesso ao billing da
+[lista do root](#até-aqui-é-root-daqui-em-diante-não):
+
+- **Billing → Cost Allocation Tags** → ative `Project`, `Certification` e `Lab`. São as
+  tags que o `default_tags` do provider carimba em tudo (ver
+  [`convencoes.md`](convencoes.md)). Sem ativar, elas existem no recurso mas o Cost
+  Explorer não sabe agrupar por elas. **Ative antes do primeiro `apply` de lab** — não
+  é retroativo.
+- **Billing → Preferências** → ative o **Cost Explorer**. Leva ~24h para os primeiros
+  dados aparecerem.
+
+Depois disso, o relatório de custo por lab é o que está descrito em
+[`custos.md`](custos.md#custo-por-lab).
 
 ## 6. Ambiente multi-conta (a partir do lab 09)
 
