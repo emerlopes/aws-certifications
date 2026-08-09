@@ -295,8 +295,20 @@ abre vazio. É o erro mais comum aqui.
 
 #### 5. Copiar a URL do portal
 
-No **Dashboard**, copie a **AWS access portal URL** — algo como
-`https://d-xxxxxxxxxx.awsapps.com/start`. É a resposta da pergunta `SSO start URL`.
+No **Dashboard**, procure o bloco **URLs de AWS access portal** (_AWS access portal
+URLs_). Ele lista duas variantes da mesma URL:
+
+| Variante                 | Formato                                       | Quando usar                                |
+| ------------------------ | --------------------------------------------- | ------------------------------------------ |
+| **Apenas IPv4** _(use)_  | `https://d-xxxxxxxxxx.awsapps.com/start`      | O padrão. É a resposta do `SSO start URL`. |
+| **Dual-stack**           | variante que também atende por IPv6           | Só se a sua rede for IPv6-only.             |
+
+O `d-xxxxxxxxxx` é o identificador do seu diretório — cada conta tem o seu. O **Editar**
+ao lado troca esse trecho por um subdomínio próprio (`suaempresa.awsapps.com`); é
+cosmético e **só dá para fazer uma vez**, então não mexa agora: se trocar depois de
+configurar o perfil, a `sso_start_url` no `~/.aws/config` quebra e você refaz o 3.3.
+
+Copie a variante **Apenas IPv4**.
 
 #### Por que o e-mail tem que ser outro
 
@@ -400,12 +412,44 @@ Aqui ele **abre o navegador** para você confirmar um código e logar com o usu�
 | `CLI default output format` | `json`                                     |
 | `CLI profile name`          | `aws-labs` — precisa bater com `--profile` |
 
-Exporte na sessão de trabalho (vale colocar no `.envrc` / `.zshrc`):
+Exporte as duas variáveis na sessão de trabalho:
 
 ```bash
 export AWS_PROFILE=aws-labs
 export AWS_REGION=us-east-1
 ```
+
+Isso vale só até você fechar o terminal. Para não repetir a cada sessão de estudo,
+grave no `~/.zshrc` — **rode uma vez só**, o `>>` acrescenta e rodar duas vezes duplica
+o bloco:
+
+```bash
+cat >> ~/.zshrc <<'EOF'
+
+# aws-certifications — perfil dos labs
+export AWS_PROFILE=aws-labs
+export AWS_REGION=us-east-1
+EOF
+```
+
+Recarregue no terminal que já está aberto (os próximos abrem já com as variáveis):
+
+```bash
+source ~/.zshrc
+```
+
+Confira que pegou:
+
+```bash
+echo "$AWS_PROFILE / $AWS_REGION"
+```
+
+> **O que isso implica:** `AWS_PROFILE` no `~/.zshrc` vale para **todo** shell da sua
+> máquina, não só para este repositório. Se um dia você mexer em outra conta AWS, ou
+> desexporte na hora (`unset AWS_PROFILE`) ou passe `--profile` explícito — senão o
+> comando vai para a conta dos labs sem avisar. Quem prefere escopo por diretório usa
+> [`direnv`](https://direnv.net) e põe as mesmas duas linhas num `.envrc` na raiz do
+> repositório; aí as variáveis só existem dentro dele.
 
 Valide:
 
