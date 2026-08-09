@@ -1,0 +1,5 @@
+# Copie para terraform.tfvars (ignorado pelo git) e ajuste.
+# Variáveis certification / lab / aws_region NÃO precisam estar aqui — o
+# ./scripts/tf.sh injeta as três em todo plan/apply/destroy.
+
+# exemplo = "valor"
