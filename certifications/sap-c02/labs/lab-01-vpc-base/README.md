@@ -43,17 +43,17 @@ uma porta dos fundos destrancada para o suporte entrar (SSH, bastion, porta 22),
 **o funcionário lá dentro é quem liga para a central e deixa a linha aberta**.
 Não existe porta para alguém arrombar, porque não existe porta.
 
-| Na analogia | Na AWS |
-| --- | --- |
-| Prédio | VPC `10.1.0.0/16` |
-| Andar sem acesso à rua | Subnet isolada (route table sem `0.0.0.0/0`) |
-| Portaria com porteiro e pedágio | NAT Gateway (~US$ 32/mês + US$ 0,045/GB) |
-| Corredor interno até o depósito | Gateway endpoint (S3, DynamoDB) — grátis |
-| Linha na planta do prédio | Rota com _prefix list_ na route table |
-| Ramal do fornecedor no seu andar | Interface endpoint (ENI + PrivateLink) |
-| Aluguel por ramal, por andar | ~US$ 0,01/hora **por endpoint, por AZ** |
-| Lista telefônica interna | `private_dns_enabled` + `enable_dns_hostnames` |
-| Porta dos fundos destrancada | Bastion host com porta 22 |
+| Na analogia                         | Na AWS                                         |
+| ----------------------------------- | ---------------------------------------------- |
+| Prédio                              | VPC `10.1.0.0/16`                              |
+| Andar sem acesso à rua              | Subnet isolada (route table sem `0.0.0.0/0`)   |
+| Portaria com porteiro e pedágio     | NAT Gateway (~US$ 32/mês + US$ 0,045/GB)       |
+| Corredor interno até o depósito     | Gateway endpoint (S3, DynamoDB) — grátis       |
+| Linha na planta do prédio           | Rota com _prefix list_ na route table          |
+| Ramal do fornecedor no seu andar    | Interface endpoint (ENI + PrivateLink)         |
+| Aluguel por ramal, por andar        | ~US$ 0,01/hora **por endpoint, por AZ**        |
+| Lista telefônica interna            | `private_dns_enabled` + `enable_dns_hostnames` |
+| Porta dos fundos destrancada        | Bastion host com porta 22                      |
 | Funcionário que liga para a central | Agente SSM abrindo conexão de dentro para fora |
 
 **Onde a analogia quebra** — e é exatamente aqui que mora a pegadinha do exame:
@@ -173,7 +173,7 @@ Todos os comandos abaixo assumem `us-east-1` e o prefixo de nome
   ```
 
   **Esperado:** imprime `Se voce leu isto de dentro da subnet isolada, o gateway
-  endpoint funcionou.`
+endpoint funcionou.`
   **O que isso prova:** alcançar a API da AWS **não** exige saída para a internet.
 
 - [ ] **5. Bater na parede.** Ainda dentro da sessão:
@@ -183,7 +183,7 @@ Todos os comandos abaixo assumem `us-east-1` e o prefixo de nome
   ```
 
   **Esperado:** trava e retorna `curl: (28) Connection timed out after 5001
-  milliseconds`.
+milliseconds`.
   **Atenção — o timeout tem duas causas somadas**, e saber separá-las é o ponto:
   a route table não tem `0.0.0.0/0` (passo 3) **e** o security group só libera
   egress para o CIDR da VPC e para as prefix lists. Qualquer uma das duas
@@ -224,7 +224,7 @@ Todos os comandos abaixo assumem `us-east-1` e o prefixo de nome
 
   **Esperado:** em 2–5 min o agente perde o registro. Uma sessão nova falha com
   `An error occurred (TargetNotConnected) when calling the StartSession
-  operation`. No Console → Systems Manager → Fleet Manager, a instância some ou
+operation`. No Console → Systems Manager → Fleet Manager, a instância some ou
   aparece como `Connection lost`.
   **Reverter:**
 
@@ -240,7 +240,7 @@ Todos os comandos abaixo assumem `us-east-1` e o prefixo de nome
   a internet, que ela não tem. O interface endpoint **existia** o tempo todo; o
   que quebrou foi só a resolução de nome. E o DNS privado depende de
   `enable_dns_support` + `enable_dns_hostnames` na VPC: com `enable_dns_hostnames
-  = false` você nem consegue ligar `private_dns_enabled`. Essa cadeia de
+= false` você nem consegue ligar `private_dns_enabled`. Essa cadeia de
   dependência é uma questão inteira do exame.
 
 - [ ] **8. Confirmar no flow log que nada atravessou o IGW.** Pegue o IP privado
@@ -354,12 +354,12 @@ aplicar para aprender):
 ./scripts/tf.sh plan certifications/sap-c02/labs/lab-01-vpc-base
 ```
 
-| Valor | O que aparece no plan | Custo/mês |
-| --- | --- | --- |
-| `"none"` (atual) | nada | US$ 0 |
-| `"single"` | 1 EIP + 1 NAT GW + rota default em **uma** RT privada | ~US$ 32 |
-| `"per_az"` | 2 EIPs + 2 NAT GWs + rota default em **cada** RT privada | ~US$ 65 |
-| `"instance"` | 1 EC2 `t4g.nano` com `source_dest_check = false` | ~US$ 3 |
+| Valor            | O que aparece no plan                                    | Custo/mês |
+| ---------------- | -------------------------------------------------------- | --------- |
+| `"none"` (atual) | nada                                                     | US$ 0     |
+| `"single"`       | 1 EIP + 1 NAT GW + rota default em **uma** RT privada    | ~US$ 32   |
+| `"per_az"`       | 2 EIPs + 2 NAT GWs + rota default em **cada** RT privada | ~US$ 65   |
+| `"instance"`     | 1 EC2 `t4g.nano` com `source_dest_check = false`         | ~US$ 3    |
 
 Repare em duas coisas: em `"per_az"` o Terraform passa a criar **uma route table
 privada por AZ** (com `"single"` todas compartilham uma) — é essa mudança
