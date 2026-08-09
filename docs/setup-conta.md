@@ -298,10 +298,10 @@ abre vazio. É o erro mais comum aqui.
 No **Dashboard**, procure o bloco **URLs de AWS access portal** (_AWS access portal
 URLs_). Ele lista duas variantes da mesma URL:
 
-| Variante                 | Formato                                       | Quando usar                                |
-| ------------------------ | --------------------------------------------- | ------------------------------------------ |
-| **Apenas IPv4** _(use)_  | `https://d-xxxxxxxxxx.awsapps.com/start`      | O padrão. É a resposta do `SSO start URL`. |
-| **Dual-stack**           | variante que também atende por IPv6           | Só se a sua rede for IPv6-only.             |
+| Variante                | Formato                                  | Quando usar                                |
+| ----------------------- | ---------------------------------------- | ------------------------------------------ |
+| **Apenas IPv4** _(use)_ | `https://d-xxxxxxxxxx.awsapps.com/start` | O padrão. É a resposta do `SSO start URL`. |
+| **Dual-stack**          | variante que também atende por IPv6      | Só se a sua rede for IPv6-only.            |
 
 O `d-xxxxxxxxxx` é o identificador do seu diretório — cada conta tem o seu. O **Editar**
 ao lado troca esse trecho por um subdomínio próprio (`suaempresa.awsapps.com`); é
@@ -489,10 +489,10 @@ Start URL`. Nenhuma senha é digitada no terminal em momento algum, e nada é gr
 
 São **dois relógios diferentes**, e confundir os dois é a fonte da confusão:
 
-| Relógio                                    | Padrão | Onde muda                                                        | Quem renova                                              |
-| ------------------------------------------ | ------ | ---------------------------------------------------------------- | -------------------------------------------------------- |
-| **Sessão do portal** (token do SSO)        | 8 h    | Identity Center → **Settings** → **Authentication**              | **Você**, com `aws sso login` (com navegador)             |
-| **Sessão da role** (do permission set)     | 1 h    | Permission set → `Session duration`                              | O AWS CLI, sozinho e em silêncio                          |
+| Relógio                                | Padrão | Onde muda                                           | Quem renova                                   |
+| -------------------------------------- | ------ | --------------------------------------------------- | --------------------------------------------- |
+| **Sessão do portal** (token do SSO)    | 8 h    | Identity Center → **Settings** → **Authentication** | **Você**, com `aws sso login` (com navegador) |
+| **Sessão da role** (do permission set) | 1 h    | Permission set → `Session duration`                 | O AWS CLI, sozinho e em silêncio              |
 
 Enquanto o token do portal estiver válido, o CLI renova a credencial da role sem te
 avisar — você não vê nada de hora em hora. O que você sente é o relógio de cima: um dia
@@ -536,14 +536,14 @@ está criando.
 
 Passo a passo do que acontece na sua frente:
 
-| # | O que aparece                                            | O que fazer                                                    |
-| - | -------------------------------------------------------- | -------------------------------------------------------------- |
-| 1 | `==> criando bucket de state remoto`                     | Nada, é o `tf.sh` anunciando                                    |
-| 2 | `Initializing provider plugins… successfully initialized` | Nada — é só o `terraform init`, **ainda não criou nada**        |
-| 3 | O plano, com `Plan: 6 to add, 0 to change, 0 to destroy`  | **Leia**                                                        |
-| 4 | `Do you want to perform these actions?` / `Enter a value:` | Digite **`yes`** e Enter. Só `yes` vale — `y` não, Enter vazio não |
-| 5 | `Apply complete! Resources: 6 added.`                    | Pronto                                                          |
-| 6 | `✔ bootstrap concluído`                                  | A linha do `tf.sh`, só sai se tudo acima deu certo               |
+| #   | O que aparece                                              | O que fazer                                                        |
+| --- | ---------------------------------------------------------- | ------------------------------------------------------------------ |
+| 1   | `==> criando bucket de state remoto`                       | Nada, é o `tf.sh` anunciando                                       |
+| 2   | `Initializing provider plugins… successfully initialized`  | Nada — é só o `terraform init`, **ainda não criou nada**           |
+| 3   | O plano, com `Plan: 6 to add, 0 to change, 0 to destroy`   | **Leia**                                                           |
+| 4   | `Do you want to perform these actions?` / `Enter a value:` | Digite **`yes`** e Enter. Só `yes` vale — `y` não, Enter vazio não |
+| 5   | `Apply complete! Resources: 6 added.`                      | Pronto                                                             |
+| 6   | `✔ bootstrap concluído`                                    | A linha do `tf.sh`, só sai se tudo acima deu certo                 |
 
 > **O passo 2 engana.** `Terraform has been successfully initialized!` é a mensagem do
 > `init`, não do `apply` — ela aparece mesmo quando nada é criado. Se a execução terminar
@@ -551,14 +551,14 @@ Passo a passo do que acontece na sua frente:
 
 Os 6 recursos, e por que cada um (vale ler — é conteúdo do Domínio 1.2):
 
-| Recurso                      | Para quê                                                                     |
-| ---------------------------- | ----------------------------------------------------------------------------- |
-| Bucket S3                    | O state em si. Tem `prevent_destroy = true` — não sai por acidente             |
-| Versionamento                | State corrompido ou apagado dá para voltar à versão anterior                   |
-| Criptografia (SSE-S3)        | State tem valores sensíveis em texto claro; nunca deve ficar sem criptografia  |
-| Public access block          | Quatro flags fechando ACL e policy pública                                     |
-| Bucket policy TLS-only       | Nega `s3:*` quando `aws:SecureTransport = false`                               |
-| Lifecycle                    | Expira versões antigas em 90 dias para o custo não crescer para sempre         |
+| Recurso                | Para quê                                                                      |
+| ---------------------- | ----------------------------------------------------------------------------- |
+| Bucket S3              | O state em si. Tem `prevent_destroy = true` — não sai por acidente            |
+| Versionamento          | State corrompido ou apagado dá para voltar à versão anterior                  |
+| Criptografia (SSE-S3)  | State tem valores sensíveis em texto claro; nunca deve ficar sem criptografia |
+| Public access block    | Quatro flags fechando ACL e policy pública                                    |
+| Bucket policy TLS-only | Nega `s3:*` quando `aws:SecureTransport = false`                              |
+| Lifecycle              | Expira versões antigas em 90 dias para o custo não crescer para sempre        |
 
 O locking usa o lockfile nativo do S3 (`use_lockfile`), disponível a partir do Terraform
 1.11 — por isso a exigência de versão na [seção 1](#1-ferramentas-locais). Não é preciso
@@ -580,13 +580,13 @@ O `head-bucket` **não imprime nada** quando dá certo — silêncio é sucesso.
 
 ### 4.3 Se der errado
 
-| Sintoma                                                        | Causa                                                                | Conserto                                                                        |
-| -------------------------------------------------------------- | -------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| Terminou logo depois de `successfully initialized`, sem `Apply complete!` | O `yes` não foi digitado                                    | Rode de novo e responda `yes`                                                     |
-| `NoSuchBucket` num lab ou no `guardrails`                       | O bootstrap não completou — o bucket nunca existiu                    | Rode o bootstrap, confira com o 4.2, e só então volte                             |
-| `BucketAlreadyOwnedByYou`                                       | O bucket existe, mas o `bootstrap/terraform.tfstate` local sumiu      | Importe em vez de recriar (ver [`bootstrap/README.md`](../bootstrap/README.md))    |
-| `The security token included in the request is invalid`         | Sessão SSO expirada                                                   | `aws sso login` ([3.4](#34-renovar-a-sessão-você-vai-fazer-isso-todo-dia))         |
-| Bucket criado numa região e procurado em outra                  | `AWS_REGION` mudou entre as execuções                                 | `echo $AWS_REGION` deve dizer `us-east-1` sempre                                  |
+| Sintoma                                                                   | Causa                                                            | Conserto                                                                        |
+| ------------------------------------------------------------------------- | ---------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| Terminou logo depois de `successfully initialized`, sem `Apply complete!` | O `yes` não foi digitado                                         | Rode de novo e responda `yes`                                                   |
+| `NoSuchBucket` num lab ou no `guardrails`                                 | O bootstrap não completou — o bucket nunca existiu               | Rode o bootstrap, confira com o 4.2, e só então volte                           |
+| `BucketAlreadyOwnedByYou`                                                 | O bucket existe, mas o `bootstrap/terraform.tfstate` local sumiu | Importe em vez de recriar (ver [`bootstrap/README.md`](../bootstrap/README.md)) |
+| `The security token included in the request is invalid`                   | Sessão SSO expirada                                              | `aws sso login` ([3.4](#34-renovar-a-sessão-você-vai-fazer-isso-todo-dia))      |
+| Bucket criado numa região e procurado em outra                            | `AWS_REGION` mudou entre as execuções                            | `echo $AWS_REGION` deve dizer `us-east-1` sempre                                |
 
 Mais detalhes em [`bootstrap/README.md`](../bootstrap/README.md).
 
@@ -600,12 +600,11 @@ existe é aviso, e aviso só serve se estiver de pé **antes** do gasto acontece
 - **Budget e anomalia são retroativos zero.** Eles observam o que acontece a partir do
   momento em que existem. Um NAT Gateway esquecido na semana 1 só vira e-mail se o
   alerta já existia na semana 1.
-- **Cost allocation tag não backfilla.** Este é o pega maior: a tag só classifica o
-  custo **gerado depois** de você ativá-la no console. Ativar na semana 3 significa que
-  os labs 01–08 nunca terão custo por lab no Cost Explorer — e custo por lab é conteúdo
-  de estudo aqui (Domínios 1.5, 2.6 e 3.5), não curiosidade.
 - **Cost Explorer demora ~24h** para começar a popular. Se você ativar hoje e rodar o
   primeiro lab hoje, os números só aparecem amanhã.
+
+Uma coisa que **não** é urgente é a ativação das cost allocation tags — ela nem pode ser
+feita agora. Ver [5.4](#54-o-que-fica-para-depois-e-por-que-não-dá-para-fazer-agora).
 
 Some a isso que esta stack é a única **permanente** do repositório (`Ephemeral = false`,
 ver [`guardrails/main.tf`](../guardrails/main.tf)): ela não é destruída no fim da sessão
@@ -645,11 +644,11 @@ Agora edite o arquivo:
 ${EDITOR:-nano} guardrails/terraform.tfvars
 ```
 
-| Variável                | Padrão      | O que colocar                                                                                                                        |
-| ----------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| `notification_email`    | _(nenhum)_  | Obrigatório. O e-mail que você **realmente lê** — é para onde vão os alertas.                                                          |
-| `monthly_budget_usd`    | `30`        | O teto mensal. Escolha um número que te faria mudar de comportamento se fosse ultrapassado, não um que você ignoraria.                 |
-| `anomaly_threshold_usd` | `5`         | Não está no `.example`; só adicione se quiser mudar. Abaixo desse impacto, a anomalia não vira e-mail (evita ruído de centavos).       |
+| Variável                | Padrão     | O que colocar                                                                                                                    |
+| ----------------------- | ---------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `notification_email`    | _(nenhum)_ | Obrigatório. O e-mail que você **realmente lê** — é para onde vão os alertas.                                                    |
+| `monthly_budget_usd`    | `30`       | O teto mensal. Escolha um número que te faria mudar de comportamento se fosse ultrapassado, não um que você ignoraria.           |
+| `anomaly_threshold_usd` | `5`        | Não está no `.example`; só adicione se quiser mudar. Abaixo desse impacto, a anomalia não vira e-mail (evita ruído de centavos). |
 
 ### 5.2 Aplicar
 
@@ -659,12 +658,12 @@ ${EDITOR:-nano} guardrails/terraform.tfvars
 
 O que sobe — e por quê:
 
-| Recurso                        | O que faz                                                                            | Por que existe                                                                  |
-| ------------------------------ | ------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------- |
-| **Tópico SNS** + inscrição     | Canal único de alerta, com policy deixando `budgets` e `costalerts` publicarem nele   | Um lugar só para plugar coisas depois (Slack, Lambda) sem refazer os alertas     |
-| **Budget mensal** — 50/80/100% | Avisa quando o gasto **realizado** cruza cada faixa                                   | Termômetro: 50% no dia 10 é informação diferente de 50% no dia 28                |
-| **Budget mensal** — previsão   | Avisa quando a **projeção** do mês passa de 100%                                      | É o alerta que salva: chega **antes** de estourar, não depois                    |
-| **Cost Anomaly Detection**     | Monitor por serviço, varredura diária, alerta acima do impacto configurado            | Pega o recurso esquecido em dias, não na fatura do mês seguinte                  |
+| Recurso                        | O que faz                                                                           | Por que existe                                                               |
+| ------------------------------ | ----------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| **Tópico SNS** + inscrição     | Canal único de alerta, com policy deixando `budgets` e `costalerts` publicarem nele | Um lugar só para plugar coisas depois (Slack, Lambda) sem refazer os alertas |
+| **Budget mensal** — 50/80/100% | Avisa quando o gasto **realizado** cruza cada faixa                                 | Termômetro: 50% no dia 10 é informação diferente de 50% no dia 28            |
+| **Budget mensal** — previsão   | Avisa quando a **projeção** do mês passa de 100%                                    | É o alerta que salva: chega **antes** de estourar, não depois                |
+| **Cost Anomaly Detection**     | Monitor por serviço, varredura diária, alerta acima do impacto configurado          | Pega o recurso esquecido em dias, não na fatura do mês seguinte              |
 
 Os guarda-corpos em si **não custam nada**: budget que só monitora e notifica é gratuito
 (o que a AWS cobra são _action-enabled budgets_, que executam ações como aplicar SCP — as
@@ -695,21 +694,36 @@ de verdade significa confirmado.
 > pendente. Já os de **anomalia** só saem pelo tópico. Receber alerta de budget não é
 > prova de que está tudo configurado.
 
-### 5.4 O que ainda precisa ser feito no Console
+### 5.4 O que fica para depois (e por que não dá para fazer agora)
 
-Estes dois não têm API que o Terraform cubra de forma útil — e ambos vivem no console de
-Billing, então dependem daquele toggle de acesso ao billing da
-[lista do root](#até-aqui-é-root-daqui-em-diante-não):
+Falta ligar as **cost allocation tags** — mas **não tente agora**. Elas não vão estar lá.
 
-- **Billing → Cost Allocation Tags** → ative `Project`, `Certification` e `Lab`. São as
-  tags que o `default_tags` do provider carimba em tudo (ver
-  [`convencoes.md`](convencoes.md)). Sem ativar, elas existem no recurso mas o Cost
-  Explorer não sabe agrupar por elas. **Ative antes do primeiro `apply` de lab** — não
-  é retroativo.
-- **Billing → Preferências** → ative o **Cost Explorer**. Leva ~24h para os primeiros
-  dados aparecerem.
+A lista de **Billing → Cost allocation tags** não é um campo livre onde você digita nomes
+de tag: é a lista das chaves que a AWS **já viu carimbadas em recursos seus**. Sem
+recurso criado, `Project`, `Certification` e `Lab` simplesmente não existem para o
+Billing, e não há o que ativar. Só depois do primeiro `apply` de lab é que as três
+aparecem — o `default_tags` do provider carimba todas automaticamente (ver
+[`convencoes.md`](convencoes.md)), você não precisa fazer nada para isso acontecer.
 
-Depois disso, o relatório de custo por lab é o que está descrito em
+A ordem real, então:
+
+| Quando                         | O quê                                                                 |
+| ------------------------------ | --------------------------------------------------------------------- |
+| **Agora**                      | **Billing → Preferências** → ative o **Cost Explorer**. Esse não depende de recurso nenhum e leva ~24h para popular — quanto antes, melhor. |
+| Depois do primeiro lab         | Nada. As tags vão sendo carimbadas sozinhas.                          |
+| ~24h depois do primeiro lab    | **Billing → Cost allocation tags** → as chaves aparecem → selecione `Project`, `Certification`, `Lab` → **Activate**. Leva até mais 24h para valer. |
+
+> **Se você esquecer e lembrar semanas depois, não perdeu nada.** Desde 2024 a AWS
+> aplica cost allocation tag retroativamente: **Cost allocation tags → Backfill tags** →
+> escolha o mês inicial → **Confirm**, e ela reclassifica até **12 meses** de custo. A
+> condição é que a tag estivesse no recurso na época — e estava, porque o `default_tags`
+> carimba desde o primeiro `apply`. Só dá para pedir **um backfill a cada 24h**, e o Cost
+> Explorer leva mais um ciclo de ~24h para refletir.
+
+Ambas as telas vivem no console de Billing, então dependem daquele toggle de acesso ao
+billing da [lista do root](#até-aqui-é-root-daqui-em-diante-não).
+
+Com isso ligado, o relatório de custo por lab é o que está descrito em
 [`custos.md`](custos.md#custo-por-lab).
 
 ## 6. Ambiente multi-conta (a partir do lab 09)

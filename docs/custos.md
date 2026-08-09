@@ -82,6 +82,10 @@ Buckets S3 com objetos também travam o `destroy` — os labs usam
 Com as cost allocation tags ativas:
 **Cost Explorer → Group by → Tag: `Lab`**, filtro `Certification = SAP-C02`.
 
+As chaves `Project`, `Certification` e `Lab` só aparecem para ativação ~24h **depois** do
+primeiro lab aplicado — antes disso o Billing não conhece essas tags. Ver
+[setup-conta.md 5.4](setup-conta.md#54-o-que-fica-para-depois-e-por-que-não-dá-para-fazer-agora).
+
 Anote o custo real de cada lab no [`progresso.md`](../certifications/sap-c02/progresso.md).
 Isso vira intuição de otimização de custo — que é literalmente o conteúdo dos
 Domínios 1.5, 2.6 e 3.5.

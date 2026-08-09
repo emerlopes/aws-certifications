@@ -41,13 +41,13 @@ O bucket vem do `./scripts/tf.sh bootstrap` — é o único módulo com state lo
 
 Aplicadas via `default_tags` no provider, nunca recurso a recurso:
 
-| Tag             | Valor                    |
-| --------------- | ------------------------ |
-| `Project`       | `aws-certifications`     |
-| `Certification` | `SAP-C02` \| `AIP-C01`   |
-| `Lab`           | `lab-07-dr-pilot-light`  |
-| `ManagedBy`     | `terraform`              |
-| `Ephemeral`     | `true`                   |
+| Tag             | Valor                   |
+| --------------- | ----------------------- |
+| `Project`       | `aws-certifications`    |
+| `Certification` | `SAP-C02` \| `AIP-C01`  |
+| `Lab`           | `lab-07-dr-pilot-light` |
+| `ManagedBy`     | `terraform`             |
+| `Ephemeral`     | `true`                  |
 
 `Ephemeral=true` é o que permite achar e destruir o que ficou órfão. Não remova.
 Único lugar onde é `false`: `guardrails/`.
@@ -61,7 +61,7 @@ por isso `variables.tf` sempre declara as três, mesmo que o lab não use.
 - `required_version = ">= 1.11"` (o backend S3 com `use_lockfile` precisa disso).
 - Provider AWS pinado em `~> 6.0`. Commite o `.terraform.lock.hcl`.
 - **Toda** variável tem `description`. Variável com domínio restrito tem `validation`.
-- **Todo** output tem `description`. Outputs existem para *inspecionar* o lab:
+- **Todo** output tem `description`. Outputs existem para _inspecionar_ o lab:
   IDs para colar no console, comandos prontos para copiar.
 - `for_each` sobre mapa/set, nunca `count` sobre lista — evita recriação em cascata
   quando um item some do meio. `count` só para recurso condicional (`count = x ? 1 : 0`).
@@ -72,7 +72,7 @@ por isso `variables.tf` sempre declara as três, mesmo que o lab não use.
   data "aws_ssm_parameter" "al2023" {
     name = "/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-arm64"
   }
-  ```
+  ```text
 - Políticas IAM via `data "aws_iam_policy_document"` quando forem grandes ou tiverem
   condições; `jsonencode` inline quando forem de 3 linhas.
 - Segredo nunca em variável com `default`. Use `aws_secretsmanager_secret` +
