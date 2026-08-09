@@ -71,7 +71,7 @@ Requer o `session-manager-plugin` instalado (ver [setup-conta.md](../../../../do
 
 1. Uma instância em subnet privada precisa chamar a API do S3. NAT Gateway,
    interface endpoint ou gateway endpoint? Por quê, e qual é a diferença de custo?
-2. Por que Session Manager funciona sem nenhuma regra de *ingress* no security group?
+2. Por que Session Manager funciona sem nenhuma regra de _ingress_ no security group?
 3. O que exatamente quebra se `enable_dns_hostnames` estiver `false`?
 4. Você precisa reduzir custo de uma VPC com 3 NAT Gateways cujo tráfego é 90%
    para S3 e ECR. O que você propõe?
@@ -94,7 +94,7 @@ quantos recursos mudam e por quê `source_dest_check = false` é obrigatório.
 ./scripts/tf.sh destroy certifications/sap-c02/labs/lab-01-vpc-base
 ```
 
-Custo real observado: ________ (preencha depois)
+Custo real observado: **\_\_\_\_** (preencha depois)
 
 ## Anotações
 
