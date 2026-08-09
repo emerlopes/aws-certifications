@@ -457,12 +457,57 @@ Valide:
 aws sts get-caller-identity
 ```
 
-Deve sair um JSON com `Account`, `UserId` e `Arn`. Se vier
-`The SSO session has expired`, é só renovar — a sessão dura poucas horas e expira
-todo dia de estudo:
+Deve sair um JSON com `Account`, `UserId` e `Arn`.
+
+### 3.4 Renovar a sessão (você vai fazer isso todo dia)
+
+A sessão expira e **isso não é defeito** — é o ponto do SSO. Quando expirar, qualquer
+comando falha com uma destas mensagens:
+
+```text
+Error loading SSO Token: Token for aws-labs does not exist
+The SSO session associated with this profile has expired or is otherwise invalid
+```
+
+O conserto é sempre o mesmo comando:
 
 ```bash
-aws sso login --profile aws-labs
+aws sso login
+```
+
+Com `AWS_PROFILE=aws-labs` exportado (você fez isso acima), não precisa do `--profile`.
+Se não estiver: `aws sso login --profile aws-labs`.
+
+Ele **abre o navegador**, mostra um código de verificação e pede para você conferir se
+bate com o que está no terminal. Confira mesmo — é o passo que impede um site qualquer
+de disparar um login às suas costas. Autorize (**Confirm and continue** → **Allow
+access**), feche a aba e volte ao terminal: ele já saiu com `Successfully logged into
+Start URL`. Nenhuma senha é digitada no terminal em momento algum, e nada é gravado no
+`~/.aws/credentials` — o token fica em `~/.aws/sso/cache/`.
+
+#### Por que expira "toda hora"
+
+São **dois relógios diferentes**, e confundir os dois é a fonte da confusão:
+
+| Relógio                                    | Padrão | Onde muda                                                        | Quem renova                                              |
+| ------------------------------------------ | ------ | ---------------------------------------------------------------- | -------------------------------------------------------- |
+| **Sessão do portal** (token do SSO)        | 8 h    | Identity Center → **Settings** → **Authentication**              | **Você**, com `aws sso login` (com navegador)             |
+| **Sessão da role** (do permission set)     | 1 h    | Permission set → `Session duration`                              | O AWS CLI, sozinho e em silêncio                          |
+
+Enquanto o token do portal estiver válido, o CLI renova a credencial da role sem te
+avisar — você não vê nada de hora em hora. O que você sente é o relógio de cima: um dia
+de estudo de mais de 8 horas, ou o estudo de amanhã. Aí sim, `aws sso login`.
+
+> **No meio de um `apply`:** o Terraform pega a credencial no começo e não renova. Se a
+> sessão do portal morrer durante um `apply` longo, ele falha no meio, com o state já
+> tendo recursos criados — o conserto é `aws sso login` e rodar de novo (o Terraform
+> reconcilia). Para evitar, faça `aws sso login` **antes** de labs pesados em vez de
+> depois do erro.
+
+Para encerrar a sessão de propósito (máquina compartilhada, fim de sessão de estudo):
+
+```bash
+aws sso logout
 ```
 
 ## 4. State remoto
@@ -513,9 +558,17 @@ Organization e as OUs via Terraform.
 
 ## 7. Rotina de cada sessão de estudo
 
+Abrir — a sessão do dia anterior já expirou ([3.4](#34-renovar-a-sessão-você-vai-fazer-isso-todo-dia)):
+
+```bash
+aws sso login
+```
+
 ```bash
 ./scripts/tf.sh list      # states existentes
 ```
+
+Fechar — antes de desligar, sempre:
 
 ```bash
 ./scripts/tf.sh orphans   # recursos com Ephemeral=true ainda de pé
