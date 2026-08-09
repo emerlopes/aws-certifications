@@ -147,6 +147,8 @@ cmd_lint() {
     info "checkov   $LAB_DIR"
     checkov -d "$REPO_ROOT/$LAB_DIR" --framework terraform --compact --quiet \
       || warn "checkov apontou itens — em lab é aceitável, mas leia (Domínio 2.3 / 3.2)"
+  else
+    warn "checkov não instalado (brew install checkov)"
   fi
 }
 

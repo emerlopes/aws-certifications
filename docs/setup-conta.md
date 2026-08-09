@@ -4,31 +4,70 @@ Faça isso **uma vez**, antes do primeiro lab.
 
 ## 1. Ferramentas locais
 
+### Pré-requisito
+
+Tudo aqui assume **macOS com [Homebrew](https://brew.sh)**. Se `brew --version` falhar,
+instale primeiro:
+
 ```bash
-brew install terraform awscli jq tflint
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 ```
 
-O Session Manager precisa de um plugin separado do CLI — vários labs abrem shell
-em instância sem IP público, e sem ele o `aws ssm start-session` falha:
+> **Linux/WSL**: o Homebrew funciona, mas o `session-manager-plugin` não está lá.
+> Ver a [instalação por distribuição](https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-working-with-install-plugin.html).
+> O resto (`terraform`, `awscli`, `jq`, `tflint`, `checkov`, `infracost`) tem pacote
+> nativo ou binário oficial.
+
+### Obrigatórias
+
+```bash
+brew install terraform awscli
+```
 
 ```bash
 brew install --cask session-manager-plugin
 ```
 
-Opcionais, mas valem muito neste repo:
+O plugin é separado do AWS CLI e **não** vem junto. Vários labs abrem shell em
+instância sem IP público; sem ele o `aws ssm start-session` falha com um erro que
+não deixa óbvio o que faltou.
+
+| Ferramenta               | Para quê                          | Se faltar                             |
+| ------------------------ | --------------------------------- | ------------------------------------- |
+| `terraform`              | Tudo                              | Nada funciona                         |
+| `awscli`                 | Credenciais, `list`, `orphans`    | Nada funciona                         |
+| `session-manager-plugin` | Shell em instância sem IP público | Labs 01, 19, 24, 31 ficam pela metade |
+
+### Opcionais
 
 ```bash
-brew install infracost   # estimativa de custo antes do apply
-pipx install checkov     # scan de segurança dos .tf (Domínio 2.3 / 3.2)
+brew install tflint checkov infracost jq
 ```
 
-Confira:
+| Ferramenta  | Para quê                                                     | Se faltar                    |
+| ----------- | ------------------------------------------------------------ | ---------------------------- |
+| `tflint`    | Lint de Terraform                                            | `tf.sh lint` avisa e segue   |
+| `checkov`   | Scan de segurança dos `.tf` (vira estudo do Domínio 2.3/3.2) | `tf.sh lint` pula essa etapa |
+| `infracost` | Estimativa de custo antes do `apply`                         | `tf.sh cost` não roda        |
+| `jq`        | Filtrar saída JSON do AWS CLI nas verificações manuais       | Nada quebra, só dá mais trabalho |
+
+Nenhuma das três bloqueia nada — o `tf.sh` detecta a ausência e avisa em vez de falhar.
+Instale quando quiser; o `checkov` em especial é útil a partir da semana 6.
+
+Depois do `tflint`, rode uma vez para baixar os plugins:
 
 ```bash
-terraform version && aws --version
+tflint --init
 ```
 
-Terraform precisa ser **>= 1.11** (o backend S3 com `use_lockfile` depende disso).
+### Conferir
+
+```bash
+terraform version && aws --version && session-manager-plugin --version
+```
+
+Terraform precisa ser **>= 1.11** — o backend S3 com `use_lockfile` depende disso.
+Se o seu for mais antigo: `brew upgrade terraform`.
 
 ## 2. Perfil AWS
 
