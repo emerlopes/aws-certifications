@@ -116,8 +116,56 @@ flowchart TB
     linkStyle 1 stroke:#c62828,stroke-width:2px
 ```
 
-<!-- Uma ou duas frases: leia o desenho pelo que ele NÃO tem / pelo caminho X
-     em vez do caminho Y. -->
+### Como ler o desenho
+
+<!-- OBRIGATÓRIO em todo lab. O diagrama sozinho NÃO se explica: quem abre o
+     README daqui a seis semanas não sabe por onde começar a olhar, o que é
+     fronteira e o que é recurso, nem qual seta importa. Sem este texto, o
+     diagrama vira decoração.
+
+     Escreva em parágrafos curtos, cada um começando por um **negrito** que
+     funciona como manchete — dá para ler só os negritos e entender o desenho.
+     Nesta ordem:
+
+     1. **As convenções.** O que é fronteira (subgraph) e o que é recurso, o que
+        significa a posição (ex.: camadas empilhadas da mais exposta à mais
+        restrita) e o que significa a COR. Ninguém adivinha sua legenda.
+     2. **Onde começar.** Aponte UMA caixa e diga por que ela é o personagem:
+        "comece pela EC2 — tudo no desenho existe para responder à pergunta X".
+        Este é o parágrafo que o leitor perdido procura.
+     3. **Um parágrafo por caminho**, numerado, seguindo a seta do começo ao
+        fim e dizendo o que se aprende nele. Inclua o SENTIDO da seta quando ele
+        for o conteúdo (quem inicia a conexão, quem consulta quem).
+     4. **O caminho que falha**, com o comando do roteiro que o prova e a razão
+        de ele estar desenhado — a ausência de seta não prova nada.
+     5. **O que está fora da fronteira** e por quê (serviço público da AWS,
+        outra conta, on-premises).
+     6. **O que ler pela ausência.** O recurso caro que a arquitetura ingênua
+        teria e este lab não tem, com o valor economizado.
+     7. **A conta.** Aponte onde o custo está escrito no próprio desenho e o
+        trade-off que ele resume.
+
+     Teste: dê o diagrama e este texto para alguém que nunca viu o lab. Se a
+     pessoa não souber dizer por onde o tráfego entra e por onde ele NÃO entra,
+     falta parágrafo.
+
+     Veja o lab-01-vpc-base como referência de forma. -->
+
+**As convenções primeiro.** — o que é fronteira, o que é recurso, o que a
+posição e a cor significam.
+
+**Onde começar: CAIXA-X.** — por que ela é o personagem do lab.
+
+**1. NOME-DO-CAMINHO (cor, direção).** — de onde sai, por onde passa, onde
+termina, e o que se aprende no sentido da seta.
+
+**2. NOME-DO-CAMINHO.** — ...
+
+**3. O caminho que falha (vermelho).** — o comando do roteiro, o erro esperado e
+por quê.
+
+**O que ler pela ausência.** — o recurso caro que não está aqui e quanto isso
+economiza.
 
 ## Glossário
 
@@ -203,12 +251,12 @@ flowchart TB
 
 - [ ] **2. <Título curto da observação>**
 
-  Console → SERVIÇO → SEÇÃO → <o que clicar>.
+  Console → SERVIÇO → SEÇÃO → BOTÃO.
 
   **Esperado:** <o que você deve ver>
   **O que isso prova:** <...>
 
-- [ ] **3. Quebrar de propósito: <o que desligar>**
+- [ ] **3. Quebrar de propósito: O-QUE-DESLIGAR**
 
   ```bash
   <comando que quebra>

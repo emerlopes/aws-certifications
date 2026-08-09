@@ -140,10 +140,60 @@ flowchart TB
     linkStyle 7 stroke:#c62828,stroke-width:2px
 ```
 
-Leia o desenho pelo que **não** tem: nenhum NAT Gateway, nenhuma rota `0.0.0.0/0`
-saindo da subnet isolada, nenhuma regra de ingress na instância. Os dois caminhos
-que a EC2 usa são o verde (rota, de graça) e o laranja (ENI, pago por AZ) — a
-distinção que o lab inteiro existe para gravar.
+### Como ler o desenho
+
+**As convenções primeiro.** As caixas amarelas são fronteiras, não recursos: a de
+fora é a **região** `us-east-1`, a de dentro é a **VPC**. As três caixas dentro da
+VPC são as **camadas de subnet**, empilhadas da mais exposta (pública, em cima) à
+mais restrita (isolada, embaixo) — cada uma existe em duas AZs, e o CIDR no título
+mostra as duas faixas. A **cor de cada caixa é o custo**: verde não cobra nada,
+laranja cobra por hora e por AZ, vermelho tracejado é o que **não existe** ou o que
+**não funciona**.
+
+**Onde começar: na EC2**, na camada isolada. Ela é o personagem do lab — tudo no
+desenho existe para responder "como essa máquina, que não tem IP público nem rota
+para a internet, ainda é administrável e ainda alcança o S3?". Saem dela **três
+caminhos**, e o lab inteiro é a comparação entre eles.
+
+**1. O caminho de administração (laranja, sobe).** A EC2 fala com as ENIs dos
+interface endpoints na camada privada, em 443. Repare no sentido da seta: quem
+**inicia** a conexão é o agente dentro da instância, não você — por isso o security
+group dela não precisa de nenhuma regra de entrada. Dali o tráfego segue por
+PrivateLink até o plano de controle do Systems Manager. Você, no canto direito,
+entra pelo outro lado: seu laptop fala com o Systems Manager, nunca com a
+instância. As duas metades se encontram no serviço, no meio — **nunca existe uma
+conexão de fora para dentro da VPC**. É por isso que não há bastion no desenho.
+
+**2. O caminho de dados (verde, desce).** A EC2 → route table isolada → gateway
+endpoints → S3 e DynamoDB. Este caminho é desenhado passando **pela route table de
+propósito**: o gateway endpoint não é uma caixa no meio do caminho, é uma **linha
+dentro daquela tabela**. Por isso ele não tem IP, não tem ENI e não custa nada — e
+por isso também ele só vale para quem consulta aquela route table, ou seja, só para
+quem está dentro desta VPC.
+
+**3. O caminho que falha (vermelho, para a direita).** A seta com **x nas duas
+pontas** vai da EC2 até a Internet e mostra o passo 5 do roteiro: `curl
+example.com` dá timeout. Ela está no desenho porque a ausência de uma seta não
+prova nada — o que se aprende aqui é que esse caminho foi **fechado por duas
+razões independentes**, a route table sem `0.0.0.0/0` e o security group que só
+libera egress para a VPC e para as prefix lists.
+
+**O que está fora da VPC.** S3, DynamoDB e Systems Manager aparecem dentro da
+região mas fora da caixa da VPC, porque é isso que eles são: serviços públicos da
+AWS, com endpoint público. O ponto do lab é que a instância os alcança **sem sair
+para a rede pública** — os endpoints são justamente a ponte entre as duas caixas.
+
+**O que ler pela ausência.** O `NAT Gateway` tracejado embaixo é o recurso que a
+arquitetura ingênua colocaria aqui e que este lab não tem — ~US$ 32/mês por AZ
+economizados. O Internet Gateway existe, mas repare que **nenhuma seta sai das
+subnets públicas**: elas estão vazias, e só a route table pública tem rota default.
+Nada na camada isolada aponta para ele.
+
+**A conta do lab está no desenho.** A caixa laranja diz `3 × 2 AZs × US$ 0,01/h`:
+três interface endpoints replicados em duas AZs. Comparada à caixa verde, que diz
+`US$ 0`, ela é o resumo do trade-off que o exame cobra — gateway endpoint é de
+graça mas só serve S3 e DynamoDB e só de dentro da VPC; interface endpoint serve
+qualquer serviço e é alcançável de fora, mas você paga aluguel por AZ.
 
 ## Glossário
 
