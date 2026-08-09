@@ -224,51 +224,136 @@ economiza.
 
 <!-- O VALOR DO LAB ESTÁ AQUI, não no apply.
 
-     Cada item precisa ser executável por alguém que esqueceu tudo sobre o lab.
-     Nada de "verifique a route table". Escreva:
+     A regra que resolve quase tudo: escreva para você mesmo daqui a seis semanas,
+     cansado, sem lembrar nada do lab. Essa pessoa não sabe EM QUE MÁQUINA o
+     comando roda, não sabe se a saída que apareceu é a certa e não sabe o que
+     fazer quando não é. Todo passo responde as três.
 
-       1. O comando exato (copiável) ou o caminho no console clique a clique
-          (Console → serviço → aba → botão).
-       2. O resultado esperado — literal. Se der para citar a saída, cite.
-       3. O que isso prova. Uma frase ligando ao conceito do exame.
+     ### Contexto de execução: o erro nº 1 do roteiro
 
-     Inclua pelo menos um item de FALHA CONTROLADA: quebre algo de propósito,
-     observe o erro exato, conserte. Ver funcionar ensina metade; ver quebrar do
-     jeito certo ensina a outra metade — e é o que a questão descreve.
+     Se o lab tem mais de um lugar onde comandos rodam (seu laptop, um shell
+     dentro da instância, uma segunda conta, o console), ABRA A SEÇÃO com uma
+     tabela de contextos: o marcador, o que é, e COMO A PESSOA SABE que está
+     naquele contexto (o prompt muda? o `hostname` responde o quê?). Depois, todo
+     passo começa declarando o seu marcador. Sem isso o leitor cola um comando de
+     laptop dentro da sessão SSM e passa vinte minutos achando que o lab quebrou.
 
-     Sempre que o valor vier de um output do Terraform, mostre como obtê-lo:
-     ./scripts/tf.sh output certifications/sap-c02/labs/lab-NN-slug -->
+     Convenção do repositório:
+       💻 no seu laptop   🔒 dentro da sessão/instância   🌐 no navegador
 
-- [ ] **1. <Título curto da observação>**
+     ### A forma de cada passo, nesta ordem
+
+       1. **Título em ação**, dizendo o que se ganha — "Provar que não existe rota
+          para a internet", não "Route tables".
+       2. **Marcador de contexto** + onde exatamente (qual terminal, qual conta,
+          qual diretório).
+       3. **O que este passo faz**, em uma ou duas frases de português simples,
+          ANTES do comando. Explique também as flags que não são óbvias (por que
+          `-m 5`, por que o `-` no fim do `aws s3 cp`). Se o comando vai parecer
+          travado, ou demorar, avise aqui — silêncio inesperado parece erro.
+       4. **O comando exato**, copiável, com valores de exemplo no lugar de
+          placeholders (`i-05e3f0c9c4a2b7d18`, não uma variável a preencher).
+       5. **Saída esperada**, num bloco ```text — a saída LITERAL, não a
+          descrição dela. Este é o item que mais falta e o que mais salva.
+       6. **Como ler:** aponte o CAMPO que importa ("os campos 4 e 5 são origem e
+          destino"), e diga quando o que importa é uma AUSÊNCIA ("você está
+          procurando a linha que não existe").
+       7. **Se falhar:** os dois ou três erros que realmente acontecem, com a
+          mensagem literal e a correção. Separe "ainda não ficou pronto" de
+          "está errado" — esperar 2 min e reconfigurar são coisas diferentes.
+       8. **O que isso prova:** uma frase, ligando ao conceito do exame.
+
+     ### Ainda obrigatório
+
+     - Pelo menos um passo de FALHA CONTROLADA: quebre de propósito, veja o erro
+       exato, conserte. Ver funcionar ensina metade; ver quebrar do jeito certo
+       ensina a outra metade — e é o que a questão descreve.
+     - O primeiro passo pega os outputs do Terraform, porque todo o resto usa:
+       ./scripts/tf.sh output certifications/sap-c02/labs/lab-NN-slug
+     - Diga no começo que os IDs das saídas de exemplo são fictícios e que o que
+       importa é o formato.
+
+     Veja o lab-01-vpc-base como referência de forma. -->
+
+### Antes de começar: como ler este roteiro
+
+| Marcador                | Onde é                          | Como saber que você está lá |
+| ----------------------- | ------------------------------- | --------------------------- |
+| 💻 **No seu laptop**    | Terminal normal, no repositório | Prompt de sempre            |
+| 🔒 **Dentro da sessão** | Shell na instância, via SSM     | Prompt vira `sh-5.2$`       |
+| 🌐 **No navegador**     | Console da AWS                  | —                           |
+
+<!-- Ajuste a tabela ao lab. Se só existe UM contexto, diga isso numa frase e
+     apague a tabela — mas diga, não deixe implícito. -->
+
+As saídas abaixo são exemplos com IDs fictícios; o que importa é o formato.
+
+- [ ] **1. Pegar os valores que todo o resto usa**
+
+  💻 **No seu laptop**, no diretório do repositório.
+  **O que este passo faz:** lê o state e imprime os identificadores do apply.
 
   ```bash
-  <comando exato>
+  ./scripts/tf.sh output certifications/sap-c02/labs/lab-NN-slug
   ```
 
-  **Esperado:** <saída literal ou o que aparece na tela>
-  **Se falhar:** <causa mais provável e como corrigir>
-  **O que isso prova:** <a frase que você quer lembrar na hora da questão>
+  **Saída esperada:**
 
-- [ ] **2. <Título curto da observação>**
+  ```text
+  algum_output = "valor-de-exemplo"
+  ```
 
-  Console → SERVIÇO → SEÇÃO → BOTÃO.
+  **Como ler:** quais valores você vai reusar nos próximos passos.
+  **Se falhar:** causa provável e correção.
 
-  **Esperado:** <o que você deve ver>
-  **O que isso prova:** <...>
+- [ ] **2. TÍTULO EM AÇÃO**
+
+  MARCADOR **onde exatamente.**
+  **O que este passo faz:** uma ou duas frases simples, antes do comando.
+
+  ```bash
+  comando exato com valores de exemplo
+  ```
+
+  **Saída esperada:**
+
+  ```text
+  a saída literal
+  ```
+
+  **Como ler:** o campo que importa — ou a ausência que você está procurando.
+  **Se falhar:** mensagem literal do erro e a correção.
+  **O que isso prova:** a frase que você quer lembrar na hora da questão.
 
 - [ ] **3. Quebrar de propósito: O-QUE-DESLIGAR**
 
+  MARCADOR **onde.**
+  **O que este passo faz:** o que você desliga e, principalmente, o que você NÃO
+  toca — é isso que isola a causa.
+
   ```bash
-  <comando que quebra>
+  comando que quebra
   ```
 
-  **Esperado:** <o erro exato, com a mensagem>
-  **Reverter:** `<comando que conserta>`
-  **O que isso prova:** <por que essa dependência existe>
+  **Saída esperada:** o erro exato, com a mensagem, e quanto tempo demora até
+  aparecer.
+  **Reverter:**
 
-- [ ] **4. Custo.** Cost Explorer (D+1), agrupe por tag `Lab`. Anote o valor real
-      no [`progresso.md`](../../progresso.md) — a estimativa do topo deste README
-      é chute até você medir.
+  ```bash
+  comando que conserta
+  ```
+
+  **O que isso prova:** por que essa dependência existe.
+
+- [ ] **4. Conferir a conta**
+
+  🌐 **No navegador**, D+1. Console → Billing and Cost Management → Cost Explorer
+  → filtro Tag → chave `Lab` → valor `lab-NN-slug`.
+
+  **Como ler:** qual item domina a conta e por quê; confira a matemática da
+  estimativa do topo deste README.
+  **O que isso prova:** onde o dinheiro deste desenho realmente vai. Anote o valor
+  real no [`progresso.md`](../../progresso.md) — a estimativa é chute até medir.
 
 ## Perguntas que o lab responde
 

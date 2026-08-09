@@ -259,33 +259,104 @@ falhar de primeira, espere e repita.
 
 ## O que observar
 
-Todos os comandos abaixo assumem `us-east-1` e o prefixo de nome
-`sap-c02-lab-01-vpc-base` (derivado de `<certification>-<lab>` pelo `tf.sh`).
+### Antes de começar: como ler este roteiro
 
-- [ ] **1. Pegar os outputs.** Tudo que vem depois usa esses valores.
+Os comandos deste lab rodam em **dois lugares diferentes**, e confundir os dois é o
+que mais atrapalha. Todo passo começa dizendo onde ele roda:
+
+| Marcador                | Onde é                                                     | Como saber que você está lá                                                                 |
+| ----------------------- | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| 💻 **No seu laptop**    | Seu terminal normal, no diretório do repositório           | O prompt é o seu de sempre (`➜ aws-certifications git:(main)`)                              |
+| 🔒 **Dentro da sessão** | Um shell **na instância EC2**, aberto pelo Session Manager | O prompt vira `sh-5.2$` e some o nome do seu diretório. `hostname` responde `ip-10-1-128-x` |
+
+Três coisas que facilitam a vida antes de começar:
+
+1. **Abra dois terminais.** Um fica com a sessão SSM aberta o lab inteiro; o outro
+   você usa para os comandos 💻. Ficar abrindo e fechando sessão desperdiça os
+   ~2 min de registro do agente a cada vez.
+2. **Renove o SSO no terminal 💻** (`aws sso login --profile aws-labs`). Dentro da
+   sessão 🔒 não existe SSO: a instância usa a IAM role dela, sem login nenhum.
+3. **Para sair da sessão 🔒**, digite `exit` ou aperte `Ctrl-D`. Você volta ao
+   prompt do laptop.
+
+As saídas abaixo são **exemplos reais com IDs trocados** — os seus vão ser
+diferentes. O que importa é o **formato** e o campo destacado em cada "Como ler".
+Tudo assume `us-east-1` e o prefixo de nome `sap-c02-lab-01-vpc-base`, que o
+`tf.sh` deriva de `certification` + `lab`.
+
+---
+
+- [ ] **1. Pegar os valores que todo o resto usa**
+
+  💻 **No seu laptop**, no diretório do repositório.
+  **O que este passo faz:** lê o state do Terraform e imprime os identificadores
+  criados no apply. Você não precisa decorar nenhum: os dois últimos já vêm como
+  comandos prontos para copiar.
 
   ```bash
   ./scripts/tf.sh output certifications/sap-c02/labs/lab-01-vpc-base
   ```
 
-  **Esperado:** `instance_id`, `test_bucket`, `session_manager_command` e
-  `proof_command` já montados, prontos para copiar.
+  **Saída esperada:**
 
-- [ ] **2. Abrir o shell sem bastion.** Copie o valor de `session_manager_command`:
-
-  ```bash
-  aws ssm start-session --target <instance_id> --region us-east-1
+  ```text
+  instance_id = "i-05e3f0c9c4a2b7d18"
+  proof_command = "aws s3 cp s3://sap-c02-lab-01-vpc-base-000011112222/hello.txt - --region us-east-1"
+  session_manager_command = "aws ssm start-session --target i-05e3f0c9c4a2b7d18 --region us-east-1"
+  subnets_by_tier = {
+    "isolated" = {
+      "us-east-1a" = "subnet-0c1d2e3f4a5b6c7d8"
+      "us-east-1b" = "subnet-0d2e3f4a5b6c7d8e9"
+    }
+    "private" = { ... }
+    "public"  = { ... }
+  }
+  test_bucket = "sap-c02-lab-01-vpc-base-000011112222"
+  vpc_id = "vpc-0a1b2c3d4e5f60718"
   ```
 
-  **Esperado:** `Starting session with SessionId: ...` e um prompt `sh-5.2$`.
-  **Se falhar** com `TargetNotConnected`: o agente ainda não registrou — espere
-  2 min. Com `SessionManagerPlugin is not found`: instale o plugin.
-  **O que isso prova:** você tem shell numa máquina **sem IP público, sem chave
-  SSH e com security group sem nenhuma regra de ingress**. O acesso veio do
-  agente ligando para fora, não de uma porta aberta. É por isso que bastion host
-  é distrator.
+  **Como ler:** guarde `instance_id` e `test_bucket` — eles aparecem em quase
+  todos os passos seguintes. `session_manager_command` é o passo 2 e
+  `proof_command` é o passo 4, já montados com os seus IDs.
+  **Se falhar** com `No outputs found`: o apply não rodou ou rodou em outro lab.
+  Confira com `./scripts/tf.sh list`.
 
-- [ ] **3. Provar que não existe rota para a internet.** Numa aba fora da sessão:
+- [ ] **2. Abrir um shell na instância — sem bastion, sem chave, sem porta aberta**
+
+  💻 **No seu laptop.** Cole o valor de `session_manager_command` do passo 1.
+  **O que este passo faz:** pede ao Systems Manager um canal até o agente que roda
+  dentro da instância. Repare que você **não informa IP nenhum** — só o ID da
+  instância. Não há para onde "apontar", porque não há porta aberta.
+
+  ```bash
+  aws ssm start-session --target i-05e3f0c9c4a2b7d18 --region us-east-1
+  ```
+
+  **Saída esperada:**
+
+  ```text
+  Starting session with SessionId: aws-labs-0f8a7b6c5d4e3f210
+  sh-5.2$
+  ```
+
+  **Como ler:** o prompt mudou para `sh-5.2$` — **daqui em diante você está dentro
+  da instância** (marcador 🔒). Confirme com `hostname`, que responde algo como
+  `ip-10-1-128-45.ec2.internal`: um IP da subnet isolada.
+  **Se falhar** com `TargetNotConnected`: o agente ainda não registrou. Espere 2
+  min depois do apply e repita — não é erro de configuração. Com
+  `SessionManagerPlugin is not found`: falta o plugin no seu laptop
+  ([setup-conta.md](../../../../docs/setup-conta.md#1-ferramentas-locais)).
+  **O que isso prova:** você tem shell numa máquina **sem IP público, sem chave SSH
+  e com um security group sem uma única regra de ingress**. O acesso veio do agente
+  ligando para fora, não de uma porta aberta esperando conexão. É exatamente por
+  isso que "bastion host em subnet pública" é o distrator errado.
+
+- [ ] **3. Provar que não existe rota para a internet**
+
+  💻 **No seu laptop** (no outro terminal — deixe a sessão do passo 2 aberta).
+  **O que este passo faz:** lê a route table da camada isolada e lista todas as
+  rotas dela. É o mesmo que abrir Console → VPC → Route tables → aba Routes, só que
+  em formato que dá para colar num relatório de auditoria.
 
   ```bash
   aws ec2 describe-route-tables \
@@ -294,55 +365,124 @@ Todos os comandos abaixo assumem `us-east-1` e o prefixo de nome
     --output table --region us-east-1
   ```
 
-  **Esperado:** exatamente 3 linhas — `10.1.0.0/16 → local` e duas com
-  `pl-xxxxxxxx → vpce-xxxxxxxx` (S3 e DynamoDB). **Nenhuma linha `0.0.0.0/0`.**
-  **O que isso prova:** o gateway endpoint é literalmente uma rota. Não é um
-  serviço no meio do caminho, não tem ENI, não tem preço — é uma linha na planta.
+  **Saída esperada:**
 
-- [ ] **4. Usar o corredor interno.** Dentro da sessão SSM, cole o `proof_command`:
-
-  ```bash
-  aws s3 cp s3://<test_bucket>/hello.txt - --region us-east-1
+  ```text
+  -----------------------------------------------------------
+  |                   DescribeRouteTables                   |
+  +---------------+---------------+-------------------------+
+  |  10.1.0.0/16  |  None         |  local                  |
+  |  None         |  pl-63a5400a  |  vpce-0a1b2c3d4e5f60718 |
+  |  None         |  pl-02cd2c6b  |  vpce-0b2c3d4e5f6071829 |
+  +---------------+---------------+-------------------------+
   ```
 
-  **Esperado:** imprime `Se voce leu isto de dentro da subnet isolada, o gateway
-endpoint funcionou.`
-  **O que isso prova:** alcançar a API da AWS **não** exige saída para a internet.
+  **Como ler:** as três colunas são _destino por CIDR_, _destino por prefix list_ e
+  _para onde vai_. A primeira linha é o tráfego interno da VPC (`local`, criada
+  sozinha, não dá para remover). As outras duas são os gateway endpoints: o destino
+  não é um CIDR, é uma **prefix list** (`pl-...`, a lista de faixas do S3 e do
+  DynamoDB naquela região), e o alvo é um `vpce-...`. **O que você está procurando
+  é uma ausência: não existe nenhuma linha com `0.0.0.0/0`.**
+  **Se vier vazio:** o filtro é por tag `Name`; confirme o prefixo com
+  `./scripts/tf.sh output` (passo 1).
+  **O que isso prova:** o gateway endpoint **é uma linha de route table**, nada
+  mais. Não é um serviço no meio do caminho, não tem ENI, não tem IP e não tem
+  preço. É por isso que ele não funciona para quem chega de fora da VPC (Direct
+  Connect, VPN, peering): quem vem de fora não consulta esta tabela.
 
-- [ ] **5. Bater na parede.** Ainda dentro da sessão:
+- [ ] **4. Alcançar o S3 de dentro da máquina isolada**
+
+  🔒 **Dentro da sessão** (o terminal com prompt `sh-5.2$`). Cole o `proof_command`
+  do passo 1.
+  **O que este passo faz:** baixa um objeto do S3 e imprime o conteúdo na tela (o
+  `-` no final do comando significa "escreva na saída padrão em vez de num
+  arquivo"). A instância não tem rota para a internet — se isto funcionar, o
+  tráfego foi por dentro.
+
+  ```bash
+  aws s3 cp s3://sap-c02-lab-01-vpc-base-000011112222/hello.txt - --region us-east-1
+  ```
+
+  **Saída esperada:**
+
+  ```text
+  Se voce leu isto de dentro da subnet isolada, o gateway endpoint funcionou.
+  ```
+
+  **Como ler:** o texto apareceu, e você não configurou nada dentro da máquina —
+  nem proxy, nem endpoint, nem credencial. O CLI usou a IAM role da instância e a
+  rota da prefix list que você viu no passo 3.
+  **Se falhar** com `Could not connect to the endpoint URL`: o gateway endpoint não
+  está associado à route table isolada. Com `AccessDenied`: é permissão de IAM, não
+  de rede — a role só pode ler **este** bucket ([main.tf:144](main.tf:144)).
+  **O que isso prova:** alcançar a API da AWS **não** exige saída para a internet.
+  "Sair para a AWS" e "sair para a internet" são caminhos diferentes.
+
+- [ ] **5. Bater na parede: tentar sair para a internet**
+
+  🔒 **Dentro da sessão**, no mesmo prompt do passo anterior.
+  **O que este passo faz:** tenta abrir um site qualquer. O `-m 5` limita a
+  tentativa a 5 segundos, senão o `curl` fica pendurado. **O comando vai parecer
+  travado por 5 segundos — isso faz parte do resultado.**
 
   ```bash
   curl -m 5 https://example.com
   ```
 
-  **Esperado:** trava e retorna `curl: (28) Connection timed out after 5001
-milliseconds`.
-  **Atenção — o timeout tem duas causas somadas**, e saber separá-las é o ponto:
-  a route table não tem `0.0.0.0/0` (passo 3) **e** o security group só libera
-  egress para o CIDR da VPC e para as prefix lists. Qualquer uma das duas
-  sozinha já bastaria. Numa questão, se removerem só o NAT e esquecerem o SG
-  (ou vice-versa), o comportamento muda — leia o cenário inteiro antes de
-  responder.
-  **O que isso prova:** "sair para a AWS" e "sair para a internet" são caminhos
-  diferentes. Essa frase vale uns 3 pontos de prova.
+  **Saída esperada:**
 
-- [ ] **6. Ver a lista telefônica interna.** Ainda dentro da sessão:
+  ```text
+  curl: (28) Connection timed out after 5001 milliseconds
+  ```
+
+  **Como ler:** o erro é **timeout**, não "host desconhecido" nem "conexão
+  recusada". Timeout = o pacote saiu e nunca voltou ninguém para responder; é a
+  assinatura de "não existe caminho", diferente de um serviço que respondeu "não".
+  **Atenção — o timeout tem duas causas somadas**, e saber separá-las é o ponto do
+  passo: a route table não tem `0.0.0.0/0` (passo 3) **e** o security group só
+  libera egress para o CIDR da VPC e para as prefix lists
+  ([main.tf:73](main.tf:73)). Qualquer uma das duas sozinha já bastaria. Numa
+  questão que remova só o NAT e esqueça o SG (ou o contrário), o comportamento
+  muda — leia o cenário inteiro antes de responder.
+  **O que isso prova:** a instância é administrável e alcança o S3, mas continua
+  sem nenhum caminho para a internet. Essa combinação é a resposta certa em boa
+  parte das questões de carga regulada.
+
+- [ ] **6. Ver o DNS privado em ação**
+
+  🔒 **Dentro da sessão.**
+  **O que este passo faz:** pergunta ao resolver da máquina para qual IP o nome
+  público do Systems Manager resolve. `getent hosts` é o "nslookup" que já vem
+  instalado na AMI.
 
   ```bash
   getent hosts ssm.us-east-1.amazonaws.com
   ```
 
-  **Esperado:** um IP **privado**, `10.1.64.x` ou `10.1.80.x` — dentro do range
-  das subnets privadas.
-  **Compare:** rode o mesmo comando no seu laptop. Lá o mesmo nome resolve para
-  um IP público da AWS.
-  **O que isso prova:** `private_dns_enabled` reescreve a resolução do nome
-  público do serviço para a ENI do endpoint. É por isso que o SDK, o CLI e o
-  agente funcionam **sem nenhuma alteração de configuração** — eles continuam
-  discando o mesmo nome.
+  **Saída esperada:**
 
-- [ ] **7. Quebrar de propósito: desligar o DNS privado.** Isto é o passo mais
-      valioso do lab. Fora da sessão:
+  ```text
+  10.1.64.23      ssm.us-east-1.amazonaws.com
+  ```
+
+  **Como ler:** o nome é **público** (`amazonaws.com`), mas o IP é **privado** e
+  está dentro de `10.1.64.0/20` ou `10.1.80.0/20` — as subnets privadas, onde vivem
+  as ENIs dos interface endpoints. O nome não mudou; o endereço por trás dele, sim.
+  **Compare agora** 💻 **no seu laptop**, com o mesmo comando: lá o mesmo nome
+  responde um IP público da AWS (algo como `52.46.145.24`). Mesma pergunta, resposta
+  diferente, porque quem responde é o resolver da VPC.
+  **O que isso prova:** `private_dns_enabled` reescreve a resolução do nome público
+  para a ENI do endpoint. É por isso que o CLI, o SDK e o agente funcionam **sem
+  nenhuma alteração de configuração** — eles continuam pedindo o mesmo nome de
+  sempre e nem sabem que existe endpoint.
+
+- [ ] **7. Quebrar de propósito: desligar o DNS privado**
+
+  💻 **No seu laptop.** Este é o passo mais valioso do lab — ver quebrar do jeito
+  certo ensina mais que ver funcionar.
+  **O que este passo faz:** primeiro descobre o ID do interface endpoint do `ssm`,
+  depois desliga **só** a resolução de nome dele. Você não vai mexer em rede, em
+  IAM nem no security group — o endpoint continua existindo e `available`.
 
   ```bash
   aws ec2 describe-vpc-endpoints \
@@ -350,61 +490,110 @@ milliseconds`.
     --query 'VpcEndpoints[0].VpcEndpointId' --output text --region us-east-1
   ```
 
+  ```text
+  vpce-0a1b2c3d4e5f60718
+  ```
+
+  Use o ID que saiu acima no comando seguinte:
+
   ```bash
-  aws ec2 modify-vpc-endpoint --vpc-endpoint-id <id> \
+  aws ec2 modify-vpc-endpoint --vpc-endpoint-id vpce-0a1b2c3d4e5f60718 \
     --no-private-dns-enabled --region us-east-1
   ```
 
-  **Esperado:** em 2–5 min o agente perde o registro. Uma sessão nova falha com
-  `An error occurred (TargetNotConnected) when calling the StartSession
-operation`. No Console → Systems Manager → Fleet Manager, a instância some ou
-  aparece como `Connection lost`.
-  **Reverter:**
+  ```text
+  {
+      "Return": true
+  }
+  ```
+
+  **Agora espere 2–5 min** e tente abrir uma sessão nova (passo 2):
+
+  ```text
+  An error occurred (TargetNotConnected) when calling the StartSession operation:
+  i-05e3f0c9c4a2b7d18 is not connected.
+  ```
+
+  **Como ler:** `Return: true` é só "o pedido foi aceito", não "já funcionou" — a
+  quebra leva alguns minutos, porque o agente só percebe quando precisa renovar a
+  conexão. Se você tinha uma sessão aberta, ela pode continuar viva por um tempo;
+  o sintoma aparece na **próxima** conexão. No Console → Systems Manager → Fleet
+  Manager a instância some da lista ou aparece como `Connection lost`.
+  **Reverter** (também demora alguns minutos para o agente voltar — tenha paciência
+  antes de achar que quebrou de vez):
 
   ```bash
-  aws ec2 modify-vpc-endpoint --vpc-endpoint-id <id> \
+  aws ec2 modify-vpc-endpoint --vpc-endpoint-id vpce-0a1b2c3d4e5f60718 \
     --private-dns-enabled --region us-east-1
   ```
 
-  (também leva alguns minutos para o agente reconectar — tenha paciência antes
-  de achar que quebrou de vez.)
-  **O que isso prova:** sem o DNS privado, o nome `ssm.us-east-1.amazonaws.com`
-  volta a resolver para o IP público — e aí a instância precisaria de rota para
-  a internet, que ela não tem. O interface endpoint **existia** o tempo todo; o
-  que quebrou foi só a resolução de nome. E o DNS privado depende de
-  `enable_dns_support` + `enable_dns_hostnames` na VPC: com `enable_dns_hostnames
-= false` você nem consegue ligar `private_dns_enabled`. Essa cadeia de
-  dependência é uma questão inteira do exame.
+  **O que isso prova:** sem o DNS privado, `ssm.us-east-1.amazonaws.com` volta a
+  resolver para o IP público — e para alcançar um IP público a instância precisaria
+  de rota para a internet, que ela não tem. O interface endpoint **existia o tempo
+  todo**; o que quebrou foi só a resolução de nome. E note a cadeia: o DNS privado
+  depende de `enable_dns_support` + `enable_dns_hostnames` na VPC — com
+  `enable_dns_hostnames = false` você nem consegue ligar `private_dns_enabled`.
+  Essa dependência é uma questão inteira do exame, e o sintoma ("as instâncias
+  sumiram do Systems Manager") não aponta para DNS de forma nenhuma.
 
-- [ ] **8. Confirmar no flow log que nada atravessou o IGW.** Pegue o IP privado
-      e leia os logs:
+- [ ] **8. Ler o flow log e confirmar que nada atravessou o IGW**
+
+  💻 **No seu laptop.** Primeiro descubra o IP privado da instância:
 
   ```bash
-  aws ec2 describe-instances --instance-ids <instance_id> \
+  aws ec2 describe-instances --instance-ids i-05e3f0c9c4a2b7d18 \
     --query 'Reservations[].Instances[].PrivateIpAddress' \
     --output text --region us-east-1
   ```
 
+  ```text
+  10.1.128.45
+  ```
+
+  **O que o próximo comando faz:** filtra o log de fluxos da VPC pelas linhas que
+  mencionam esse IP. Flow log registra **metadados** de cada conexão (quem falou com
+  quem, em que porta, aceito ou negado) — não o conteúdo.
+
   ```bash
   aws logs filter-log-events \
     --log-group-name /aws/vpc/sap-c02-lab-01-vpc-base/flow-logs \
-    --filter-pattern '"<ip-privado>"' --max-items 20 \
+    --filter-pattern '"10.1.128.45"' --max-items 20 \
     --query 'events[].message' --output text --region us-east-1
   ```
 
-  **Esperado:** linhas `ACCEPT` cujo `srcaddr` e `dstaddr` são **ambos** IPs
-  `10.1.x.x`. Nenhum destino público.
-  **Se vier vazio:** os logs agregam a cada 60s e demoram mais 1–2 min para
-  entregar. Gere tráfego (repita o passo 4) e tente de novo.
-  **O que isso prova:** a evidência de auditoria do cenário PCI lá de cima é
-  esta consulta. O tráfego para o S3 é privado ponta a ponta.
+  **Saída esperada:**
 
-- [ ] **9. Contar o custo.** Cost Explorer (D+1), agrupe por tag `Lab`, filtre
-      `lab-01-vpc-base`. **Esperado:** os interface endpoints dominam a conta —
-      a EC2 `t4g.nano` é ruído perto deles. Confira a matemática:
-      3 endpoints × 2 AZs × US$ 0,01/h = **US$ 0,06/h = US$ 1,44/dia**, e a
-      instância soma ~US$ 0,10/dia. Anote o real no
-      [`progresso.md`](../../progresso.md).
+  ```text
+  2 000011112222 eni-0c1d2e3f4a5b6c7d8 10.1.128.45 10.1.64.23 49208 443 6 14 5844 1786280400 1786280460 ACCEPT OK
+  2 000011112222 eni-0c1d2e3f4a5b6c7d8 10.1.64.23 10.1.128.45 443 49208 6 12 7180 1786280400 1786280460 ACCEPT OK
+  ```
+
+  **Como ler:** os campos que importam são o **4º e o 5º** — origem e destino. Nas
+  duas linhas eles são `10.1.x.x`: um par de IPs privados conversando na porta 443
+  (a ida e a volta da mesma conexão). **Nenhum endereço público aparece.** O
+  `ACCEPT` no fim é a decisão do security group; `OK` é o status do próprio log.
+  **Se vier vazio:** os flow logs agregam a cada 60s e levam mais 1–2 min para
+  entregar no CloudWatch. Gere tráfego repetindo o passo 4 e tente de novo.
+  **O que isso prova:** esta consulta é exatamente a evidência de auditoria do
+  cenário PCI descrito lá no começo. Não é uma promessa de configuração, é o
+  registro do que de fato trafegou: privado ponta a ponta.
+
+- [ ] **9. Conferir a conta**
+
+  🌐 **No navegador**, D+1 (o Cost Explorer só fecha o dia seguinte).
+  **O que este passo faz:** confirma se a estimativa do topo deste README bateu com
+  a realidade. Console → **Billing and Cost Management** → **Cost Explorer** →
+  filtro **Tag** → chave `Lab` → valor `lab-01-vpc-base`, agrupando por **Service**.
+
+  **Como ler:** os interface endpoints (aparecem como _EC2 - Other_ ou _VPC
+  Endpoint_) devem dominar; a `t4g.nano` é ruído perto deles. Confira a matemática:
+  3 endpoints × 2 AZs × US$ 0,01/h = **US$ 0,06/h = US$ 1,44/dia**, mais ~US$
+  0,10/dia da instância.
+  **Se a tag não aparecer no filtro:** tags de alocação de custo levam até 24h para
+  ativar depois do primeiro apply — ver [docs/custos.md](../../../../docs/custos.md).
+  **O que isso prova:** o custo deste lab é quase todo "aluguel de ENI por AZ", não
+  computação. É a intuição que a pergunta 5 cobra. Anote o valor real no
+  [`progresso.md`](../../progresso.md).
 
 ## Perguntas que o lab responde
 
