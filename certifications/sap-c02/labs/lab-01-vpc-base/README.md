@@ -145,6 +145,55 @@ saindo da subnet isolada, nenhuma regra de ingress na instância. Os dois caminh
 que a EC2 usa são o verde (rota, de graça) e o laranja (ENI, pago por AZ) — a
 distinção que o lab inteiro existe para gravar.
 
+## Glossário
+
+Cada termo do diagrama, onde ele está no código e por que existe **neste** lab.
+
+### Rede
+
+| Termo                                   | Onde está                                                  | O que é e para que serve aqui                                                                                                                                                                     |
+| --------------------------------------- | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **VPC**                                 | `aws_vpc.this` ([módulo](../../../../modules/vpc/main.tf)) | Rede privada isolada dentro da região. Define o espaço de IPs (`10.1.0.0/16`) e é a fronteira dentro da qual gateway endpoint funciona.                                                           |
+| **Subnet**                              | `aws_subnet.public/private/isolated`                       | Fatia do CIDR presa a **uma** AZ. Não é uma subnet que é pública ou privada — é a **route table** associada a ela que decide isso. Aqui são 3 camadas × 2 AZs = 6 subnets.                        |
+| **Subnet isolada**                      | `aws_subnet.isolated`                                      | Camada mais restrita: route table sem rota default. É onde a EC2 do lab vive — sem caminho nenhum para a internet, nem de ida nem de volta.                                                       |
+| **AZ (Availability Zone)**              | `az_count = 2`                                             | Datacenter independente dentro da região. Importa no custo: interface endpoint cobra **por AZ**, e é por isso que 3 endpoints viram 6 cobranças.                                                  |
+| **Route table**                         | `aws_route_table.*`                                        | Tabela de rotas de uma subnet. É o objeto que o passo 3 inspeciona — provar que não há `0.0.0.0/0` nela é a evidência de "não existe saída".                                                      |
+| **Internet Gateway (IGW)**              | `aws_internet_gateway.this`                                | Porta da VPC para a internet. Existe no lab mas só a route table pública aponta para ele — e nenhuma subnet pública tem recurso dentro.                                                           |
+| **NAT Gateway**                         | `nat_strategy = "none"` em [main.tf:21](main.tf:21)        | Serviço gerenciado que dá saída à internet para quem não tem IP público. ~US$ 32/mês + US$ 0,045/GB. **O lab existe para provar que dá para não ter um.**                                         |
+| **VPC endpoint**                        | `aws_vpc_endpoint.*`                                       | Caminho privado da VPC até um serviço da AWS, sem passar pela internet. Tem dois tipos, e a diferença entre eles é metade do conteúdo do lab.                                                     |
+| **Gateway endpoint**                    | `gateway_endpoints = ["s3","dynamodb"]`                    | Tipo 1: uma **rota** na route table. Grátis, sem ENI, sem IP. Só S3 e DynamoDB oferecem. Só funciona de dentro da VPC — não atende Direct Connect, VPN, peering nem TGW.                          |
+| **Interface endpoint**                  | `interface_endpoints = [...]` em [main.tf:28](main.tf:28)  | Tipo 2: uma **ENI com IP privado** na sua subnet, via PrivateLink. ~US$ 0,01/h por endpoint por AZ. Alcançável de fora da VPC, e é o que faz o Session Manager funcionar aqui.                    |
+| **ENI (Elastic Network Interface)**     | criada pelo endpoint                                       | Placa de rede virtual com IP da sua subnet. É o que você "vê" no passo 6, quando o nome do serviço resolve para `10.1.64.x`.                                                                      |
+| **PrivateLink**                         | tecnologia por trás do interface endpoint                  | Mecanismo que expõe um serviço como ENI na sua VPC. O tráfego nunca entra na rede pública.                                                                                                        |
+| **Prefix list**                         | `data.aws_prefix_list.s3` / `.dynamodb`                    | Lista gerenciada pela AWS com todos os CIDRs públicos de um serviço numa região. Usada como destino de rota (`pl-xxxx`) e dentro do security group, para não hardcodar faixas que a AWS muda.     |
+| **`enable_dns_support` / `_hostnames`** | `aws_vpc.this`                                             | Ligam o resolver da VPC. Sem os dois, `private_dns_enabled` nem pode ser ativado — é a cadeia de dependência que a pergunta 4 explora.                                                            |
+| **`private_dns_enabled`**               | `aws_vpc_endpoint.interface`                               | Faz `ssm.us-east-1.amazonaws.com` resolver para o IP privado da ENI em vez do IP público. É o que permite SDK, CLI e agente funcionarem **sem nenhuma mudança de configuração**. Passo 7 desliga. |
+
+### Acesso e identidade
+
+| Termo                                   | Onde está                                                | O que é e para que serve aqui                                                                                                                                                 |
+| --------------------------------------- | -------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Security group (SG)**                 | `aws_security_group.instance` ([main.tf:68](main.tf:68)) | Firewall **stateful** na ENI. Stateful = a resposta a uma conexão de saída volta sozinha, sem regra de ingress. É por isso que o SG do lab não tem um único bloco `ingress`.  |
+| **Ingress / egress**                    | bloco `egress` em [main.tf:73](main.tf:73)               | Entrada / saída. Aqui só há egress, restrito a 443 para o CIDR da VPC e para as duas prefix lists — a segunda razão pela qual o `curl` do passo 5 falha.                      |
+| **Bastion host**                        | **não existe neste lab**                                 | A alternativa clássica: instância em subnet pública com porta 22 aberta, usada para saltar até a rede privada. É o distrator que este lab desmonta.                           |
+| **Session Manager**                     | `aws ssm start-session`                                  | Recurso do Systems Manager que abre shell sem porta aberta, sem chave SSH e sem IP público. A conexão parte de dentro.                                                        |
+| **Agente SSM**                          | pré-instalado na AMI AL2023                              | Processo na instância que abre a conexão de saída para o Systems Manager e mantém o canal. Se ele não alcançar os 3 endpoints, a instância some do Fleet Manager.             |
+| **`ssm`, `ssmmessages`, `ec2messages`** | `interface_endpoints`                                    | Os três endpoints obrigatórios: `ssm` é a API, `ssmmessages` é o canal da sessão interativa, `ec2messages` é o canal de comandos. Faltar **um** já quebra o acesso.           |
+| **IAM role + instance profile**         | `aws_iam_role.instance`, `aws_iam_instance_profile`      | Credencial temporária que a instância assume, sem access key gravada em disco. O instance profile é o invólucro que liga a role à EC2.                                        |
+| **`AmazonSSMManagedInstanceCore`**      | [main.tf:57](main.tf:57)                                 | Policy gerenciada com o mínimo para o Session Manager. Repare que **não tem nada de rede** — permissão e conectividade são problemas separados, e a questão costuma misturar. |
+| **IMDSv2 (`http_tokens = required`)**   | [main.tf:108](main.tf:108)                               | Obriga token na consulta ao metadata service. Bloqueia o roubo de credencial da role via SSRF — controle de segurança que cai no exame.                                       |
+
+### Computação, dados e observabilidade
+
+| Termo                      | Onde está                           | O que é e para que serve aqui                                                                                                                                     |
+| -------------------------- | ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **`t4g.nano`**             | [main.tf:102](main.tf:102)          | Menor instância Graviton (ARM). ~US$ 0,10/dia — escolhida porque o lab é sobre rede, não sobre computação.                                                        |
+| **AMI via SSM parameter**  | `data.aws_ssm_parameter.al2023`     | Busca o ID da AMI mais recente em vez de fixar um ID que expira e muda por região. Convenção do repositório.                                                      |
+| **`force_destroy = true`** | `aws_s3_bucket.test`                | Deixa o `destroy` apagar o bucket mesmo com objetos dentro. Sem isso o lab não fecha limpo e o bucket fica cobrando.                                              |
+| **Public access block**    | `aws_s3_bucket_public_access_block` | Quatro travas contra exposição acidental do bucket. Padrão obrigatório em qualquer bucket, mesmo de lab.                                                          |
+| **VPC Flow Logs**          | `enable_flow_logs = true`           | Registro de metadados de cada fluxo (IP origem/destino, porta, ACCEPT/REJECT) no CloudWatch Logs. É a evidência de auditoria do passo 8 — retenção de 1 dia aqui. |
+| **Prefixo de nome**        | `local.name_prefix`                 | `sap-c02-lab-01-vpc-base`, derivado de `<certification>-<lab>` pelo `tf.sh`. É o que os filtros `--filters "Name=tag:Name,..."` do roteiro usam.                  |
+
 ## Executar
 
 ```bash

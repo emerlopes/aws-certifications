@@ -119,6 +119,46 @@ flowchart TB
 <!-- Uma ou duas frases: leia o desenho pelo que ele NÃO tem / pelo caminho X
      em vez do caminho Y. -->
 
+## Glossário
+
+<!-- OBRIGATÓRIO em todo lab. Serve para duas coisas, nesta ordem:
+
+     1. Você volta a este lab em 6 semanas, na revisão, e não lembra o que é
+        `ssmmessages` nem por que ele estava aqui.
+     2. Ele força você a admitir o que ainda não sabe explicar. Se você não
+        consegue escrever a terceira coluna de um termo, você não entendeu o
+        recurso — só copiou o Terraform.
+
+     Regras:
+
+     - **Todo termo do diagrama entra.** Se aparece no desenho e não está no
+       glossário, ou o desenho tem ruído ou o glossário tem buraco.
+     - **Três colunas, sempre**: Termo | Onde está | O que é e para que serve aqui.
+     - A coluna "Onde está" aponta para o CÓDIGO — `aws_vpc_endpoint.interface`,
+       um link `[main.tf:68](main.tf:68)`, ou o nome da variável. É o que
+       transforma o glossário em índice navegável em vez de dicionário solto.
+     - A terceira coluna termina em "**neste lab**", não na documentação da AWS.
+       Errado: "Security group é um firewall virtual stateful."
+       Certo:  "Firewall stateful na ENI. Stateful = a resposta a uma conexão de
+                saída volta sozinha — é por isso que o SG daqui não tem ingress."
+     - **Inclua o que NÃO existe no lab** (o NAT Gateway ausente, o bastion que
+       você não criou). O distrator do exame precisa ter nome e definição, senão
+       você não o reconhece na hora da prova.
+     - Amarre ao roteiro quando der: "passo 7 desliga isto", "é o que o passo 3
+       inspeciona". Termo sem verificação associada tende a ser decoreba.
+     - Agrupe em subseções quando passar de ~12 linhas (ex.: Rede · Acesso e
+       identidade · Computação e dados). Tabela de 25 linhas ninguém lê.
+
+     Veja o lab-01-vpc-base como referência de forma. -->
+
+### Grupo de termos (ex.: Rede)
+
+| Termo             | Onde está                | O que é e para que serve aqui                                                         |
+| ----------------- | ------------------------ | ------------------------------------------------------------------------------------- |
+| **Nome do termo** | `tipo_do_recurso.nome`   | O que é, em uma frase — e a razão de ele estar **neste** lab, não a definição da AWS. |
+| **Outro termo**   | [main.tf:NN](main.tf)    | ... — o que ele custa, ou o que quebra sem ele.                                       |
+| **O que falta**   | **não existe neste lab** | O recurso que você deliberadamente não criou, e por que ele é o distrator da questão. |
+
 ## Executar
 
 ```bash
@@ -163,7 +203,7 @@ flowchart TB
 
 - [ ] **2. <Título curto da observação>**
 
-  Console → <Serviço> → <Seção> → <o que clicar>.
+  Console → SERVIÇO → SEÇÃO → <o que clicar>.
 
   **Esperado:** <o que você deve ver>
   **O que isso prova:** <...>
@@ -199,7 +239,7 @@ flowchart TB
 ### 1. <Pergunta em formato de cenário>
 
 **Resposta:** <...>
-**Por quê:** <...> Os distratores <A> e <B> falham porque <...>.
+**Por quê:** <...> Os distratores A e B falham porque <...>.
 **Onde o lab prova:** item N do roteiro — <o que você observou>.
 
 ### 2. <Pergunta em formato de cenário>
