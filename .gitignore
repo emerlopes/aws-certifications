@@ -1,0 +1,61 @@
+# --- Terraform ---
+**/.terraform/*
+.terraform.tfstate.lock.info
+
+# State: nunca commitar. O state real vive no S3 (ver bootstrap/).
+*.tfstate
+*.tfstate.*
+*.tfstate.backup
+
+# Planos podem conter valores sensíveis
+*.tfplan
+*.tfplan.*
+crash.log
+crash.*.log
+
+# Valores reais de variáveis (o .example é versionado)
+*.tfvars
+*.tfvars.json
+!*.tfvars.example
+
+# Sobrescritas locais
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# .terraform.lock.hcl DEVE ser commitado — não adicione aqui.
+
+# --- Credenciais ---
+.env
+.env.*
+!.env.example
+credentials
+*.pem
+*.ppk
+
+# --- Ferramentas ---
+.infracost/
+.terraform.d/
+
+# --- Sistema / editores ---
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+!.vscode/extensions.json
+*.swp
+
+# --- Código de labs com Lambda ---
+node_modules/
+__pycache__/
+*.pyc
+.venv/
+venv/
+dist/
+build/
+*.zip
+
+# --- Scratch ---
+tmp/
+scratch/
