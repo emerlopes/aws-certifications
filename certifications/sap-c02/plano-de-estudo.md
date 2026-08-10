@@ -30,10 +30,10 @@ semana 11 vale mais que refazer simulado.
 
 ### Semana 0 — Preparação (~4h)
 
-- [ ] Setup completo: [`docs/setup-conta.md`](../../docs/setup-conta.md)
-- [ ] `./scripts/tf.sh bootstrap` e `./scripts/tf.sh apply guardrails`
-- [ ] Ler o [guia oficial do exame](https://docs.aws.amazon.com/pt_br/aws-certification/latest/solutions-architect-professional-02/solutions-architect-professional-02.html) inteiro, incluindo a lista de serviços fora de escopo
-- [ ] Fazer o [Official Practice Question Set](https://explore.skillbuilder.aws/) (20 questões, grátis) **antes** de estudar — serve de linha de base, não de avaliação
+- [x] Setup completo: [`docs/setup-conta.md`](../../docs/setup-conta.md)
+- [x] `./scripts/tf.sh bootstrap` e `./scripts/tf.sh apply guardrails`
+- [x] Ler o [guia oficial do exame](https://docs.aws.amazon.com/pt_br/aws-certification/latest/solutions-architect-professional-02/solutions-architect-professional-02.html) inteiro, incluindo a lista de serviços fora de escopo
+- [x] Fazer o [Official Practice Question Set](https://explore.skillbuilder.aws/) (20 questões, grátis) **antes** de estudar — serve de linha de base, não de avaliação
 - [ ] Marcar a data do exame. Sem data marcada, o plano escorrega.
 
 ### Semanas 1–2 — Domínio 1: Rede e conectividade (26%)
