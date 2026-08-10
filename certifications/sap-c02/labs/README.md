@@ -7,19 +7,19 @@
 
 ## Domínio 1 — Organizational Complexity (26%)
 
-| #   | Lab                                   | Task      | Custo | O que treina                                                                  |
-| --- | ------------------------------------- | --------- | ----- | ----------------------------------------------------------------------------- |
-| 01  | [`lab-01-vpc-base`](lab-01-vpc-base/) | 1.1       | 🟡    | VPC 3-tier sem NAT, Session Manager, gateway vs. interface endpoint           |
-| 02  | `lab-02-transit-gateway`              | 1.1       | 💰    | 3 VPCs no TGW, route tables segmentadas, roteamento não-transitivo do peering |
-| 03  | `lab-03-dns-hibrido`                  | 1.1       | 🟡    | Route 53 Resolver inbound/outbound, private hosted zone, forwarding rules     |
-| 04  | `lab-04-cross-account-iam`            | 1.2       | 🟢    | AssumeRole cross-account, ExternalId, permission boundary, Access Analyzer    |
-| 05  | `lab-05-kms-criptografia`             | 1.2       | 🟢    | CMK com key policy, grants, envelope encryption, S3/EBS, ACM                  |
-| 06  | `lab-06-seguranca-centralizada`       | 1.2 / 1.4 | 🟡    | CloudTrail organizacional, Security Hub, GuardDuty, Config agregado           |
-| 07  | `lab-07-dr-pilot-light`               | 1.3       | 💰    | RTO/RPO na prática: Aurora Global, AMI cross-region, failover cronometrado    |
-| 08  | `lab-08-aws-backup`                   | 1.3       | 🟢    | Backup plan, vault lock, cópia cross-region, restore testado                  |
-| 09  | `lab-09-organizations-scp`            | 1.4       | 🟢    | Organization, OUs, SCPs, delegated admin, Control Tower vs. DIY               |
-| 10  | `lab-10-ram-compartilhamento`         | 1.4       | 🟡    | Resource Access Manager: subnets e TGW compartilhados entre contas            |
-| 11  | `lab-11-custo-visibilidade`           | 1.5       | 🟢    | Budgets, Cost Anomaly Detection, tag policies, CUR, Compute Optimizer         |
+| #   | Lab                                                 | Task      | Custo | O que treina                                                                  |
+| --- | --------------------------------------------------- | --------- | ----- | ----------------------------------------------------------------------------- |
+| 01  | [`lab-01-vpc-base`](lab-01-vpc-base/)               | 1.1       | 🟡    | VPC 3-tier sem NAT, Session Manager, gateway vs. interface endpoint           |
+| 02  | [`lab-02-transit-gateway`](lab-02-transit-gateway/) | 1.1       | 💰    | 3 VPCs no TGW, route tables segmentadas, roteamento não-transitivo do peering |
+| 03  | `lab-03-dns-hibrido`                                | 1.1       | 🟡    | Route 53 Resolver inbound/outbound, private hosted zone, forwarding rules     |
+| 04  | `lab-04-cross-account-iam`                          | 1.2       | 🟢    | AssumeRole cross-account, ExternalId, permission boundary, Access Analyzer    |
+| 05  | `lab-05-kms-criptografia`                           | 1.2       | 🟢    | CMK com key policy, grants, envelope encryption, S3/EBS, ACM                  |
+| 06  | `lab-06-seguranca-centralizada`                     | 1.2 / 1.4 | 🟡    | CloudTrail organizacional, Security Hub, GuardDuty, Config agregado           |
+| 07  | `lab-07-dr-pilot-light`                             | 1.3       | 💰    | RTO/RPO na prática: Aurora Global, AMI cross-region, failover cronometrado    |
+| 08  | `lab-08-aws-backup`                                 | 1.3       | 🟢    | Backup plan, vault lock, cópia cross-region, restore testado                  |
+| 09  | `lab-09-organizations-scp`                          | 1.4       | 🟢    | Organization, OUs, SCPs, delegated admin, Control Tower vs. DIY               |
+| 10  | `lab-10-ram-compartilhamento`                       | 1.4       | 🟡    | Resource Access Manager: subnets e TGW compartilhados entre contas            |
+| 11  | `lab-11-custo-visibilidade`                         | 1.5       | 🟢    | Budgets, Cost Anomaly Detection, tag policies, CUR, Compute Optimizer         |
 
 ## Domínio 2 — Design New Solutions (29%)
 

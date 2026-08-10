@@ -1,0 +1,7 @@
+# Copie para terraform.tfvars (ignorado pelo git) e ajuste se precisar.
+# certification / lab / aws_region são injetadas pelo ./scripts/tf.sh.
+
+# prod_vpc_cidr    = "10.21.0.0/16"
+# dev_vpc_cidr     = "10.22.0.0/16"
+# hub_vpc_cidr     = "10.23.0.0/16"
+# partner_vpc_cidr = "10.24.0.0/16"
