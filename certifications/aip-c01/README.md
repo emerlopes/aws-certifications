@@ -7,13 +7,13 @@
 
 ## Peso dos domínios
 
-| Domínio | Peso |
-| --- | --- |
-| 1 — Foundation Model Integration, Data Management, and Compliance | 31% |
-| 2 — Implementation and Integration | 26% |
-| 3 — AI Safety, Security, and Governance | 20% |
-| 4 — Operational Efficiency and Optimization for GenAI Applications | 12% |
-| 5 — Testing, Validation, and Troubleshooting | 11% |
+| Domínio                                                            | Peso |
+| ------------------------------------------------------------------ | ---- |
+| 1 — Foundation Model Integration, Data Management, and Compliance  | 31%  |
+| 2 — Implementation and Integration                                 | 26%  |
+| 3 — AI Safety, Security, and Governance                            | 20%  |
+| 4 — Operational Efficiency and Optimization for GenAI Applications | 12%  |
+| 5 — Testing, Validation, and Troubleshooting                       | 11%  |
 
 ## O que o exame valida
 
@@ -53,4 +53,4 @@ nada a configurar.
 
 ## Quando começar
 
-Marcar aqui a data prevista depois da SAP-C02: ____ / ____ / ______
+Marcar aqui a data prevista depois da SAP-C02: \_**\_ / \_\_** / **\_\_**
