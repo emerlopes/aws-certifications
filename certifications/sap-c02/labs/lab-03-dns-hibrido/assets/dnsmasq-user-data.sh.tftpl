@@ -1,0 +1,41 @@
+#!/bin/bash
+set -euxo pipefail
+
+# A NAT instance da VPC pode ainda estar subindo quando este user_data roda: o
+# Terraform espera a EC2 ficar "running", não o user_data DELA terminar. Sem
+# retry, o dnf falha e o lab sobe com um servidor DNS sem dnsmasq instalado.
+for _ in $(seq 1 30); do
+  dnf install -y dnsmasq bind-utils && break
+  sleep 10
+done
+
+cat >/etc/dnsmasq.d/lab.conf <<'CONF'
+# --------------------------------------------------------------------------
+# Este arquivo é o "servidor DNS do datacenter". Ele faz três coisas, e cada
+# uma responde a uma parte do lab.
+# --------------------------------------------------------------------------
+
+# 1. AUTORITATIVO do domínio corporativo. `local=` significa "estes nomes são
+#    meus, nunca pergunte a ninguém sobre eles" — por isso um nome inexistente
+#    em ${onprem_zone} volta como NXDOMAIN daqui, não de um upstream.
+local=/${onprem_zone}/
+host-record=db.${onprem_zone},${db_ip}
+host-record=dns.${onprem_zone},${dns_ip}
+
+# 2. CONDITIONAL FORWARDING on-prem → AWS. Só o que termina em
+#    ${aws_zone} sai daqui para os dois IPs do INBOUND endpoint.
+#    É o espelho exato da resolver rule que existe do lado da AWS.
+server=/${aws_zone}/${inbound_ip_a}
+server=/${aws_zone}/${inbound_ip_b}
+
+# 3. Todo o resto vai para o resolver da PRÓPRIA VPC on-prem. `no-resolv`
+#    impede o dnsmasq de ler /etc/resolv.conf e cair em loop consigo mesmo.
+no-resolv
+server=${onprem_vpc_resolver_ip}
+
+# Registra cada consulta no journal — é o que o roteiro lê para provar de qual
+# IP a pergunta chegou (o ENI do outbound endpoint, não a EC2 da AWS).
+log-queries
+CONF
+
+systemctl enable --now dnsmasq

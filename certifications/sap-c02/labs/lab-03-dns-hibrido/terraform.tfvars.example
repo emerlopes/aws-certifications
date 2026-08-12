@@ -1,0 +1,7 @@
+# Copie para terraform.tfvars (ignorado pelo git) e ajuste se precisar.
+# certification / lab / aws_region são injetadas pelo ./scripts/tf.sh.
+
+# aws_vpc_cidr     = "10.31.0.0/16"
+# onprem_vpc_cidr  = "10.32.0.0/16"
+# aws_private_zone = "aws.corp.internal"
+# onprem_zone      = "onprem.corp.internal"
