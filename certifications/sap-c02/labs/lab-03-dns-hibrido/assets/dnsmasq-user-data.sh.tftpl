@@ -15,6 +15,16 @@ cat >/etc/dnsmasq.d/lab.conf <<'CONF'
 # uma responde a uma parte do lab.
 # --------------------------------------------------------------------------
 
+# 0. ESCUTAR NA REDE. O /etc/dnsmasq.conf do AL2023 vem com `interface=lo` e
+#    `bind-interfaces` — default endurecido para o pacote não virar um open
+#    resolver assim que instalado. Sem estas duas linhas o dnsmasq sobe
+#    `active`, escuta só em 127.0.0.1 e RECUSA a conexão de quem vem de fora:
+#    o outbound endpoint pergunta, ninguém atende na 10.32.64.10:53, e o passo 4
+#    do roteiro dá timeout. `listen-address` em vez de `interface=` porque o
+#    nome da placa muda entre gerações de instância; o IP é fixo pelo Terraform.
+listen-address=127.0.0.1,${dns_ip}
+bind-interfaces
+
 # 1. AUTORITATIVO do domínio corporativo. `local=` significa "estes nomes são
 #    meus, nunca pergunte a ninguém sobre eles" — por isso um nome inexistente
 #    em ${onprem_zone} volta como NXDOMAIN daqui, não de um upstream.

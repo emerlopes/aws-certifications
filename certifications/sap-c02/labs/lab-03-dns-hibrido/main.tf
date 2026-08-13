@@ -355,6 +355,8 @@ resource "aws_instance" "app" {
     done
   EOF
 
+  user_data_replace_on_change = true
+
   metadata_options {
     http_tokens   = "required" # IMDSv2 obrigatório
     http_endpoint = "enabled"
@@ -435,6 +437,12 @@ resource "aws_instance" "onprem_dns" {
     inbound_ip_b           = local.inbound_ips[1]
     onprem_vpc_resolver_ip = local.onprem_vpc_resolver_ip
   })
+
+  # Sem isto, corrigir o script acima só reescreve um atributo: o cloud-init não
+  # reexecuta e a instância continua com o dnsmasq da versão antiga. O servidor
+  # DNS do lab é justamente o que se conserta editando o user_data — então ele
+  # precisa ser recriado quando o script muda.
+  user_data_replace_on_change = true
 
   metadata_options {
     http_tokens   = "required"

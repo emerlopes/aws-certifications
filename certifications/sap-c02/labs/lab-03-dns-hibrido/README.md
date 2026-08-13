@@ -754,27 +754,67 @@ eles estão fixos no código justamente para você poder conferir de cabeça.
   - **Respondeu `10.32.64.10`** → a rede está boa e o dnsmasq está vivo. O problema
     está do lado do Route 53: confira a regra, a associação e o egress UDP/53 do
     security group do outbound endpoint ([main.tf:174](main.tf:174)).
-  - **`connection refused`** → a instância está viva, mas **não há nada escutando
-    na porta 53**: o dnsmasq não subiu ou nem foi instalado.
-  - **Deu timeout também** → a pergunta não chega no dnsmasq. Suspeitos, nesta
-    ordem: a instância `-onprem-dns` não está `running`, o dnsmasq não existe, a
-    rota do peering sumiu, ou o security group ([main.tf:381](main.tf:381)).
+  - **`connection refused`** → a instância está viva e o pacote chegou nela, mas
+    **ninguém está escutando na porta 53 daquele IP**. Vá para o "servidor mudo",
+    logo abaixo.
+  - **Deu timeout também** → a pergunta não chega na instância. Suspeitos, nesta
+    ordem: a `-onprem-dns` não está `running`, a rota do peering sumiu, ou o
+    security group ([main.tf:381](main.tf:381)).
 
-  **A causa mais comum neste lab, de longe:** o dnsmasq **nunca foi instalado**.
-  O `user_data` da instância do datacenter faz `dnf install -y dnsmasq`, e isso
-  exige internet — que sai pela **NAT instance da VPC on-prem**. O script tenta
-  30 vezes a cada 10 s e desiste depois de 5 minutos. Se a NAT ainda não estava
-  encaminhando nessa janela, o pacote nunca foi instalado, o arquivo de
-  configuração foi escrito mesmo assim e o `systemctl enable --now dnsmasq`
-  falhou calado. A instância fica `running`, 3/3 no console, sem servidor DNS
-  nenhum dentro. Confirme 🏢 **no "datacenter"**:
+  **O servidor mudo — a pegadinha mais cara deste lab.** Confirme 🏢 **no
+  "datacenter"** quem está de fato escutando:
 
   ```bash
   systemctl is-active dnsmasq; rpm -q dnsmasq; sudo ss -lunp | grep ':53'
   ```
 
-  Se responder `inactive` e `package dnsmasq is not installed`, conserte na mão —
-  o `/etc/dnsmasq.d/lab.conf` já está no lugar, só falta o binário:
+  ```text
+  active
+  dnsmasq-2.90-1.amzn2023.0.3.aarch64
+  UNCONN  0  0  127.0.0.1:53  0.0.0.0:*  users:(("dnsmasq",pid=3851,fd=4))
+  UNCONN  0  0      [::1]:53     [::]:*  users:(("dnsmasq",pid=3851,fd=6))
+  ```
+
+  Leia a terceira linha com atenção: `active`, instalado, rodando — e ligado
+  **só no `127.0.0.1`**. O `/etc/dnsmasq.conf` do AL2023 vem com `interface=lo` e
+  `bind-interfaces`, um default endurecido para o pacote não virar um open
+  resolver no instante em que é instalado. Nada em `is-active`, no console da AWS
+  ou no `journalctl` denuncia isso: só o `ss`. Do lado de fora, `10.32.64.10:53`
+  simplesmente não existe.
+  O `assets/dnsmasq-user-data.sh.tftpl` já corrige isso com `listen-address`
+  ([main.tf:429](main.tf:429) monta o arquivo). Se a sua instância é anterior a
+  essa correção, o conserto imediato é:
+
+  ```bash
+  printf 'listen-address=127.0.0.1,10.32.64.10\nbind-interfaces\n' | sudo tee /etc/dnsmasq.d/listen.conf
+  sudo systemctl restart dnsmasq
+  sudo ss -lunp | grep ':53'
+  ```
+
+  Ou deixe o Terraform recriar a instância com o script certo — ela tem
+  `user_data_replace_on_change = true` justamente para isso:
+
+  ```bash
+  ./scripts/tf.sh apply certifications/sap-c02/labs/lab-03-dns-hibrido
+  ```
+
+  **Por que o mesmo defeito deu dois sintomas diferentes.** Este é o detalhe que
+  vira questão de troubleshooting. O host sem ninguém na 53 responde com um ICMP
+  *port unreachable* — uma recusa educada. Quando o `dig` sai da **EC2**, essa
+  recusa volta e você lê `connection refused`. Quando quem pergunta é o
+  **outbound endpoint**, ela é descartada: o security group dele
+  ([main.tf:174](main.tf:174)) não tem regra de ingress nenhuma, e o rastreamento
+  de estado libera a **resposta UDP** da consulta, não um ICMP de outro protocolo.
+  O resolver fica no vácuo e você lê `timed out`. Mesmo alvo quebrado, dois
+  diagnósticos: **quem pergunta muda o sintoma**, porque o caminho de volta do
+  erro é outro.
+
+  **A causa alternativa:** o dnsmasq **nem foi instalado**. O `user_data` faz
+  `dnf install -y dnsmasq`, o que exige internet pela NAT instance da VPC
+  on-prem; ele tenta 30 vezes a cada 10 s e desiste em 5 minutos. Se a NAT não
+  estava encaminhando nessa janela, o `rpm -q` acima responde
+  `package dnsmasq is not installed` — o arquivo de configuração foi escrito
+  mesmo assim, então basta o binário:
 
   ```bash
   sudo dnf install -y dnsmasq bind-utils && sudo systemctl enable --now dnsmasq
