@@ -2,15 +2,15 @@
 
 **Versão:** 1.2 · **Status:** Planejamento · **Ambiente:** Produção
 
-| Campo                      | Valor                                        |
-| -------------------------- | -------------------------------------------- |
-| Produto avaliado           | IA.i (Inteligência Itaú) — app Itaú          |
-| Domínio                    | Pós-compra de Financiamento de Veículos      |
+| Campo                      | Valor                                                 |
+| -------------------------- | ----------------------------------------------------- |
+| Produto avaliado           | IA.i (Inteligência Itaú) — app Itaú                   |
+| Domínio                    | Pós-compra de Financiamento de Veículos               |
 | Natureza do assistente     | Informativo — responde dúvidas, não executa operações |
-| Responsável pelo teste     | ******\*\*******\_\_******\*\*******         |
-| Período de execução        | \_\_/\_\_/\_\_\_\_ a \_\_/\_\_/\_\_\_\_      |
-| Versão da KB de referência | ******\*\*******\_\_******\*\*******         |
-| Liderança / stakeholders   | ******\*\*******\_\_******\*\*******         |
+| Responsável pelo teste     | **\*\***\*\***\*\***\_\_**\*\***\*\***\*\***          |
+| Período de execução        | \_\_/\_\_/\_\_\_\_ a \_\_/\_\_/\_\_\_\_               |
+| Versão da KB de referência | **\*\***\*\***\*\***\_\_**\*\***\*\***\*\***          |
+| Liderança / stakeholders   | **\*\***\*\***\*\***\_\_**\*\***\*\***\*\***          |
 
 ---
 
@@ -156,7 +156,7 @@ Critérios completos em [04 — Critérios de avaliação](04-criterios-de-avali
 - [ ] 🟡 **Amarelo** — requer ajustes antes de expandir
 - [ ] 🔴 **Vermelho** — não recomendado expandir
 
-**Justificativa:** ******\*\*******\_\_******\*\*******
+**Justificativa:** **\*\***\*\***\*\***\_\_**\*\***\*\***\*\***
 
 ---
 
@@ -215,7 +215,7 @@ Correção · Completude · Clareza · Linguagem · Aderência à KB · Seguran�
 | ---------------------------- | ------------------------------------------------------------------- |
 | Fichas de execução           | `cenarios/` — registrar direto na ficha do cenário                  |
 | Registros detalhados (P0/P1) | `registros/` — usar o [template](registros/template-registro.md)    |
-| Prints e evidências          | ******\*\*******\_\_******\*\******* (definir na Fase 1)            |
+| Prints e evidências          | **\*\***\*\***\*\***\_\_**\*\***\*\***\*\*** (definir na Fase 1)    |
 | Backlog de correções         | [06 — Relatório](06-relatorio-e-metricas.md#5-backlog-de-melhorias) |
 
 ---
