@@ -277,6 +277,12 @@ economiza.
        instrução que manda montar o comando a partir de um output é um passo que
        falta. O passo de sessão tem, obrigatoriamente:
          * o comando literal, um por instância, com ID de exemplo e `--region`;
+         * um aviso explícito, ANTES do comando, de que o `i-...` escrito ali é
+           fictício e o real vem do output `session_commands` — repetindo o
+           `./scripts/tf.sh output ...` ali mesmo. O ID muda a cada apply, e o
+           leitor cansado copia o bloco inteiro sem pensar; dizer só "IDs de
+           exemplo" no topo do roteiro não basta neste passo, porque aqui o
+           comando parece completo e executável;
          * a saída literal (`Starting session with SessionId: ...` + o prompt novo);
          * como confirmar em qual máquina você está (`hostname`), quando o lab tem
            mais de uma sessão aberta ao mesmo tempo — dois terminais com prompt
@@ -333,9 +339,15 @@ As saídas abaixo são exemplos com IDs fictícios; o que importa é o formato.
 
   💻 **No seu laptop.** Um terminal por instância.
   **O que este passo faz:** abre um shell dentro da EC2 sem IP público, sem porta
-  22 e sem chave — quem inicia a conexão é o agente de dentro da instância. O
-  comando pronto sai do output `session_commands` do passo 1; troque o ID de
-  exemplo pelo seu.
+  22 e sem chave — quem inicia a conexão é o agente de dentro da instância.
+
+  > ⚠️ **Não copie o ID daqui.** O `i-...` abaixo é fictício; o seu está no output
+  > `session_commands` do passo 1, e muda a cada `apply`. Copiar este comando como
+  > está dá `TargetNotConnected`.
+  >
+  > ```bash
+  > ./scripts/tf.sh output certifications/sap-c02/labs/lab-NN-slug
+  > ```
 
   ```bash
   aws ssm start-session --target i-05e3f0c9c4a2b7d18 --region us-east-1
@@ -363,9 +375,9 @@ As saídas abaixo são exemplos com IDs fictícios; o que importa é o formato.
   Deixe a sessão aberta até o fim do roteiro; para sair, `exit`.
   **Se falhar** com `SessionManagerPlugin is not found`: falta o
   `session-manager-plugin` no laptop — instale e repita. Com
-  `TargetNotConnected`: o agente ainda não se registrou (espere ~2 min) ou a
-  instância não alcança o Systems Manager — é problema de rota/endpoint/NAT, não
-  de IAM. Confira o `PingStatus`:
+  `TargetNotConnected`, nesta ordem: (1) você colou o ID de exemplo em vez do seu;
+  (2) o agente ainda não se registrou (espere ~2 min); (3) a instância não alcança
+  o Systems Manager — aí é rota/endpoint/NAT, não IAM. Confira o `PingStatus`:
 
   ```bash
   aws ssm describe-instance-information \

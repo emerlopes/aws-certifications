@@ -341,16 +341,27 @@ eles estão fixos no código justamente para você poder conferir de cabeça.
   **O que este passo faz:** abre um shell dentro de cada EC2 pelo Session
   Manager. Nenhuma das duas tem IP público, porta 22 aberta ou par de chaves:
   quem inicia a conexão é o agente **de dentro** da instância, que sai pela NAT
-  instance até o endpoint do Systems Manager. São os dois valores de
-  `session_commands` do passo 1 — troque os IDs de exemplo pelos seus.
+  instance até o endpoint do Systems Manager.
 
-  No **primeiro terminal**, a EC2 da AWS (marcador ☁️ do roteiro):
+  > ⚠️ **Não copie os IDs daqui.** Os `i-...` abaixo são fictícios, como todos os
+  > IDs deste roteiro. Os seus são os do output `session_commands` do passo 1 —
+  > cada `apply` cria instâncias novas, com IDs novos. Se você rodar o comando
+  > como está escrito, a resposta é `TargetNotConnected` (a instância desse ID
+  > não existe na sua conta). Pegue os comandos prontos, já com os IDs certos:
+  >
+  > ```bash
+  > ./scripts/tf.sh output certifications/sap-c02/labs/lab-03-dns-hibrido
+  > ```
+
+  No **primeiro terminal**, a EC2 da AWS (marcador ☁️ do roteiro) — é o valor de
+  `session_commands.aws`, com o `--target` no formato deste exemplo:
 
   ```bash
   aws ssm start-session --target i-05e3f0c9c4a2b7d18 --region us-east-1
   ```
 
-  No **segundo terminal**, o servidor DNS do "datacenter" (marcador 🏢):
+  No **segundo terminal**, o servidor DNS do "datacenter" (marcador 🏢) — valor de
+  `session_commands.onprem`:
 
   ```bash
   aws ssm start-session --target i-0b6d7e8f9a0b1c2d3 --region us-east-1
@@ -382,9 +393,12 @@ eles estão fixos no código justamente para você poder conferir de cabeça.
   **Se falhar** com `SessionManagerPlugin is not found`: falta o
   `session-manager-plugin` no laptop — instale-o
   ([documentação da AWS](https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-working-with-install-plugin.html))
-  e repita. Com `TargetNotConnected`: a instância subiu mas o agente ainda não se
-  registrou, ou não consegue sair para o Systems Manager — espere ~2 min e repita;
-  se insistir, confira se a instância aparece como `Online` em:
+  e repita. Com `TargetNotConnected`, confira **nesta ordem**: (1) o `--target` é
+  mesmo o ID do seu output, e não o `i-05e3f0c9c4a2b7d18` de exemplo — esse é o
+  motivo mais comum e o mais bobo; (2) o agente ainda não se registrou ou não
+  consegue sair para o Systems Manager — espere ~2 min e repita. A lista abaixo
+  mostra quais instâncias existem de verdade e estão `Online`; se a sua não
+  aparece, o ID está errado ou o agente não chegou:
 
   ```bash
   aws ssm describe-instance-information \
