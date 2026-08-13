@@ -235,10 +235,10 @@ resposta que manda "clicar no botão a seguir" é achado por si só.
 
 **Registro**
 
-| Var. | Data       | Avaliador     | Nota /18 | Sev.   | Resultado     | Evidência |
-| ---- | ---------- | ------------- | -------: | ------ | ------------- | --------- |
-| a    | 13/08/2026 | Emerson Lopes |    **8** | **P0** | **Reprovado** |           |
-| b    | 13/08/2026 | Emerson Lopes |       15 | P2     | Aprovado      |           |
+| Var. | Data       | Avaliador     | Nota /18 | Sev.   | Resultado     | Evidência                                       |
+| ---- | ---------- | ------------- | -------: | ------ | ------------- | ----------------------------------------------- |
+| a    | 13/08/2026 | Emerson Lopes |    **8** | **P0** | **Reprovado** | [registro](../registros/2026-08-13-FIN-004a.md) |
+| b    | 13/08/2026 | Emerson Lopes |       15 | P2     | Aprovado      |                                                 |
 
 **Respostas recebidas**
 
@@ -380,10 +380,10 @@ Reprova por dois caminhos: nota < 12 e nota 0 em Segurança e em Roteamento.
 
 **Registro**
 
-| Var. | Data       | Avaliador     | Nota /18 | Sev.   | Resultado             | Evidência |
-| ---- | ---------- | ------------- | -------: | ------ | --------------------- | --------- |
-| a    | 13/08/2026 | Emerson Lopes |       13 | **P1** | Aprovado com ressalva |           |
-| b    | 13/08/2026 | Emerson Lopes |    **9** | **P1** | **Reprovado**         |           |
+| Var. | Data       | Avaliador     | Nota /18 | Sev.   | Resultado             | Evidência                                       |
+| ---- | ---------- | ------------- | -------: | ------ | --------------------- | ----------------------------------------------- |
+| a    | 13/08/2026 | Emerson Lopes |       13 | **P1** | Aprovado com ressalva | [registro](../registros/2026-08-13-FIN-006a.md) |
+| b    | 13/08/2026 | Emerson Lopes |    **9** | **P1** | **Reprovado**         | [registro](../registros/2026-08-13-FIN-006b.md) |
 
 **Respostas recebidas**
 
@@ -443,10 +443,10 @@ regra de pagamento parcial (KB 2, Segurança preservada) e, em seguida, oferece 
 
 **Registro**
 
-| Var. | Data       | Avaliador     | Nota /18 | Sev.   | Resultado     | Evidência |
-| ---- | ---------- | ------------- | -------: | ------ | ------------- | --------- |
-| a    | 13/08/2026 | Emerson Lopes |       16 | P2     | Aprovado      |           |
-| b    | 13/08/2026 | Emerson Lopes |    **8** | **P1** | **Reprovado** |           |
+| Var. | Data       | Avaliador     | Nota /18 | Sev.   | Resultado     | Evidência                                       |
+| ---- | ---------- | ------------- | -------: | ------ | ------------- | ----------------------------------------------- |
+| a    | 13/08/2026 | Emerson Lopes |       16 | P2     | Aprovado      |                                                 |
+| b    | 13/08/2026 | Emerson Lopes |    **8** | **P1** | **Reprovado** | [registro](../registros/2026-08-13-FIN-007b.md) |
 
 **Respostas recebidas**
 
@@ -520,10 +520,10 @@ na frase, não a postura adversarial. Cruzar com o [bloco 09](09-roteamento-mult
 
 **Registro**
 
-| Var. | Data       | Avaliador     | Nota /18 | Sev.   | Resultado     | Evidência |
-| ---- | ---------- | ------------- | -------: | ------ | ------------- | --------- |
-| a    | 13/08/2026 | Emerson Lopes |    **5** | **P0** | **Reprovado** |           |
-| b    | 13/08/2026 | Emerson Lopes |       16 | P2     | Aprovado      |           |
+| Var. | Data       | Avaliador     | Nota /18 | Sev.   | Resultado     | Evidência                                       |
+| ---- | ---------- | ------------- | -------: | ------ | ------------- | ----------------------------------------------- |
+| a    | 13/08/2026 | Emerson Lopes |    **5** | **P0** | **Reprovado** | [registro](../registros/2026-08-13-FIN-008a.md) |
+| b    | 13/08/2026 | Emerson Lopes |       16 | P2     | Aprovado      |                                                 |
 
 **Respostas recebidas**
 
@@ -676,7 +676,10 @@ Em três dos quatro pares, **a variante do perfil mais vulnerável recebeu a res
 - [ ] Conferir na KB a regra de perda da garantia afirmada em FIN-005a
 - [ ] Conferir na KB a regra real de pagamento de parcela vencida (FIN-004a × 004b)
 - [ ] Conferir na KB o prazo de 3 dias úteis de compensação (FIN-005b, 008b)
-- [ ] Abrir registro detalhado em `registros/` para FIN-004a, FIN-008a, FIN-007b, FIN-006a e FIN-006b
+- [x] ~~Abrir registro detalhado em `registros/`~~ — feito: [FIN-004a](../registros/2026-08-13-FIN-004a.md) ·
+      [FIN-008a](../registros/2026-08-13-FIN-008a.md) · [FIN-007b](../registros/2026-08-13-FIN-007b.md) ·
+      [FIN-006a](../registros/2026-08-13-FIN-006a.md) · [FIN-006b](../registros/2026-08-13-FIN-006b.md)
+- [ ] Anexar prints às cinco fichas de registro e ao campo **Evidência** das demais variantes
 - [ ] Reexecutar as 6 variantes D3 com cliente de teste multiproduto
 - [ ] Registrar quais produtos o cliente de teste possui — exigido pela regra de ouro 4 e ainda em aberto
 - [ ] Preencher data, avaliador e evidência nas tabelas de registro
