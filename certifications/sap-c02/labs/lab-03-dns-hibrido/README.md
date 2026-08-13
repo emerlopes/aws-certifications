@@ -669,6 +669,27 @@ eles estão fixos no código justamente para você poder conferir de cabeça.
   dig db.onprem.corp.internal
   ```
 
+  **O que o comando quer dizer, em português:** *"DNS, qual é o endereço IP de
+  `db.onprem.corp.internal`?"* — a **mesma** pergunta do passo 3, para o **mesmo**
+  servidor. Mudou uma coisa só: o sufixo do nome. E o sufixo é o que decide o
+  caminho que a pergunta vai fazer.
+
+  **O que acontece nos bastidores** (a instância não enxerga nada disso):
+
+  1. A EC2 pergunta ao `10.31.0.2`, como sempre.
+  2. O resolver olha o final do nome e compara com as regras associadas à VPC.
+     `onprem.corp.internal` bate com a forwarding rule — então ele **não** tenta
+     responder sozinho.
+  3. Ele entrega a pergunta ao **outbound endpoint** (as ENIs `10.31.64.20` e
+     `10.31.80.20`), que é a porta de saída de DNS da VPC.
+  4. A ENI manda um pacote UDP/53 para `10.32.64.10` — o dnsmasq do "datacenter"
+     — atravessando o peering.
+  5. O dnsmasq responde, a resposta volta pelo mesmo caminho, e o `.2` devolve
+     para a EC2 como se ele mesmo soubesse.
+
+  Guarde o passo 3: **quem responde à instância é sempre o `.2`**. A viagem toda
+  acontece atrás dele.
+
   **Saída esperada:**
 
   ```text
@@ -682,10 +703,19 @@ eles estão fixos no código justamente para você poder conferir de cabeça.
   ;; SERVER: 10.31.0.2#53(10.31.0.2) (UDP)
   ```
 
-  **Como ler:** a linha `SERVER` continua dizendo `10.31.0.2` — do ponto de vista
-  da instância **nada mudou**, e é esse o valor da arquitetura. A pista de que a
-  pergunta viajou está no `Query time`: 34 ms contra 1 ms do passo anterior. O
-  TTL `0` vem do dnsmasq, que não deixa cachear os registros locais dele.
+  **Como ler — o que mudou e o que não mudou em relação ao passo 3:**
+
+  | O que aparece | O que significa, em português |
+  |---|---|
+  | `SERVER: 10.31.0.2` | **Continua o mesmo servidor.** Ninguém configurou nada na EC2: ela não sabe que existe um datacenter, um peering ou um endpoint. Esse "nada mudou" é o produto que a arquitetura entrega. |
+  | `Query time: 34 msec` | **A pista de que a pergunta viajou.** Eram 1 ms no passo 3 (resposta local) e agora são 34 ms — o tempo de sair da VPC, chegar no dnsmasq e voltar. Se o número pulou, o pacote andou. |
+  | `status: NOERROR` + `ANSWER: 1` | Mesma leitura do passo 3: a resposta veio e trouxe 1 endereço. |
+  | `TTL 0` (o `0` antes de `IN A`) | **Não guarde em cache.** É o dnsmasq falando: ele serve `host-record` local e prefere ser perguntado toda vez. No passo 3 esse campo era `60`, que veio do registro da private hosted zone. |
+
+  A comparação entre os dois passos é o lab inteiro em duas linhas: **mesma
+  pergunta, mesmo servidor, tempos diferentes**. O primeiro nome nasceu dentro da
+  VPC; o segundo veio do outro lado da fronteira — e a instância não percebeu a
+  diferença.
   Confirme que o nome resolvido também é alcançável:
 
   ```bash
@@ -698,9 +728,60 @@ eles estão fixos no código justamente para você poder conferir de cabeça.
   64 bytes from 10.32.64.10: icmp_seq=2 ttl=127 time=1.31 ms
   ```
 
-  **Se falhar** com `status: SERVFAIL`: o dnsmasq não subiu — pule para o passo 9,
-  que trata exatamente desse sintoma. Com `NXDOMAIN`: a regra não está associada
-  a esta VPC (passo 8).
+  **Se falhar — leia primeiro qual dos três sintomas você tem.** Eles apontam para
+  causas que não têm interseção, e trocar um pelo outro faz você procurar no lugar
+  errado:
+
+  | Sintoma | Tradução | Onde procurar |
+  |---|---|---|
+  | `status: NXDOMAIN` | "Alguém respondeu: esse nome não existe." | O `.2` nem tentou encaminhar — falta a **associação** da regra com a VPC. É o passo 8 acontecendo sem querer. |
+  | `status: SERVFAIL` | "Eu sabia para onde perguntar e a tentativa deu errado." | O caminho existe, o alvo é que não serviu. É o passo 9. |
+  | `communications error ... timed out` seguido de `no servers could be reached` | "**Ninguém respondeu nada.**" O `dig` esperou 5 s, tentou 3 vezes e desistiu. | Buraco negro no caminho: pacote sendo descartado em silêncio, sem nem uma recusa de volta. |
+
+  O terceiro é o mais confuso porque o `dig` aponta o dedo para o `10.31.0.2` —
+  mas o `.2` não está morto: o passo 3 acabou de funcionar com ele. O que
+  aconteceu é que **ele ficou esperando** o dnsmasq responder, e a resposta nunca
+  veio. O `dig` desistiu antes do resolver desistir.
+
+  **Isole em um comando só.** Pergunte direto ao dnsmasq, pulando o resolver da
+  AWS e a forwarding rule — o security group da instância `-onprem-dns` já libera
+  a UDP/53 para toda a faixa `10.31.0.0/16`, então a EC2 pode falar com ele:
+
+  ```bash
+  dig @10.32.64.10 db.onprem.corp.internal +time=3 +tries=1
+  ```
+
+  - **Respondeu `10.32.64.10`** → a rede está boa e o dnsmasq está vivo. O problema
+    está do lado do Route 53: confira a regra, a associação e o egress UDP/53 do
+    security group do outbound endpoint ([main.tf:174](main.tf:174)).
+  - **`connection refused`** → a instância está viva, mas **não há nada escutando
+    na porta 53**: o dnsmasq não subiu ou nem foi instalado.
+  - **Deu timeout também** → a pergunta não chega no dnsmasq. Suspeitos, nesta
+    ordem: a instância `-onprem-dns` não está `running`, o dnsmasq não existe, a
+    rota do peering sumiu, ou o security group ([main.tf:381](main.tf:381)).
+
+  **A causa mais comum neste lab, de longe:** o dnsmasq **nunca foi instalado**.
+  O `user_data` da instância do datacenter faz `dnf install -y dnsmasq`, e isso
+  exige internet — que sai pela **NAT instance da VPC on-prem**. O script tenta
+  30 vezes a cada 10 s e desiste depois de 5 minutos. Se a NAT ainda não estava
+  encaminhando nessa janela, o pacote nunca foi instalado, o arquivo de
+  configuração foi escrito mesmo assim e o `systemctl enable --now dnsmasq`
+  falhou calado. A instância fica `running`, 3/3 no console, sem servidor DNS
+  nenhum dentro. Confirme 🏢 **no "datacenter"**:
+
+  ```bash
+  systemctl is-active dnsmasq; rpm -q dnsmasq; sudo ss -lunp | grep ':53'
+  ```
+
+  Se responder `inactive` e `package dnsmasq is not installed`, conserte na mão —
+  o `/etc/dnsmasq.d/lab.conf` já está no lugar, só falta o binário:
+
+  ```bash
+  sudo dnf install -y dnsmasq bind-utils && sudo systemctl enable --now dnsmasq
+  ```
+
+  Se o `dnf` também falhar aqui, o problema é anterior ao DNS: a NAT instance
+  desta VPC não está encaminhando. Volte ao passo 2.
   **O que isso prova:** outbound endpoint + forwarding rule resolvem nome
   on-premises **sem tocar em nenhuma instância**. Numa questão que diga "200
   instâncias precisam entrar no domínio do AD", é isto — não `/etc/hosts`, não
