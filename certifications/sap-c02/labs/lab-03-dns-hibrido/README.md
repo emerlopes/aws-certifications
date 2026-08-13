@@ -837,6 +837,15 @@ eles estão fixos no código justamente para você poder conferir de cabeça.
   sudo journalctl -u dnsmasq --no-pager -n 10
   ```
 
+  **O que o comando quer dizer, em português:** *"systemd, me mostre as últimas 10
+  linhas que o serviço `dnsmasq` escreveu."* O `journalctl` é o leitor de logs do
+  systemd; `-u dnsmasq` filtra por serviço, `-n 10` limita as linhas e
+  `--no-pager` despeja tudo na tela em vez de abrir o `less` (que numa sessão do
+  Session Manager fica desconfortável de sair).
+
+  Até aqui você viu a resposta **chegando** na EC2. Este passo olha o mesmo evento
+  do outro lado do vidro: o que o datacenter viu chegar.
+
   **Saída esperada:**
 
   ```text
@@ -844,12 +853,24 @@ eles estão fixos no código justamente para você poder conferir de cabeça.
   Aug 12 14:02:40 ip-10-32-64-10 dnsmasq[1421]: config db.onprem.corp.internal is 10.32.64.10
   ```
 
-  **Como ler:** o campo que importa é o `from 10.31.64.20` — o **ENI do outbound
-  endpoint**, não o `10.31.64.40` da EC2 que rodou o `dig`. Do ponto de vista do
-  datacenter, quem consulta é o Route 53 Resolver; a instância é invisível. É por
-  isso que o firewall on-premises deve liberar os IPs dos endpoints, e não a
-  faixa das instâncias — detalhe que vira questão. O `config` na segunda linha é
-  o dnsmasq dizendo que respondeu de um `host-record` local.
+  **Como ler:**
+
+  | O que aparece | O que significa, em português |
+  |---|---|
+  | `query[A] db.onprem.corp.internal` | "Me perguntaram o IPv4 desse nome." É o eco exato do `dig` do passo 4. |
+  | `from 10.31.64.20` | **O campo que importa.** Quem perguntou foi o **ENI do outbound endpoint** — não o `10.31.64.40` da EC2 que digitou o comando. |
+  | `config ... is 10.32.64.10` | "Respondi de cabeça." `config` = a resposta saiu de um `host-record` do próprio arquivo, sem consultar ninguém. |
+
+  **Repare no que está faltando: a EC2.** Ela não aparece em lugar nenhum do log.
+  Do ponto de vista do datacenter, o cliente de DNS da AWS é o Route 53 Resolver,
+  e as instâncias por trás dele são invisíveis — mil EC2 consultando produzem
+  linhas com o mesmo punhado de IPs de endpoint.
+
+  A consequência prática é o que vira questão de prova: no firewall on-premises
+  você libera a **UDP/53 vinda dos IPs dos endpoints**, não a faixa das
+  instâncias. Some as instâncias, troque-as, dobre a frota — a regra do firewall
+  não muda. É por isso também que os IPs dos endpoints merecem ser tratados como
+  endereço fixo de infraestrutura, e não como detalhe de implementação.
   Agora 💻 **no seu laptop**, confira a unidade de cobrança:
 
   ```bash
@@ -867,9 +888,18 @@ eles estão fixos no código justamente para você poder conferir de cabeça.
   +---------------------------------+-----------+-----+------------------+
   ```
 
-  **O que isso prova:** `IpAddressCount = 2` em cada linha é a fatura. São 4 ENIs
-  a US$ 0,125/h, cobradas por existirem — as duas consultas que você fez até aqui
-  custaram frações de centavo, o aluguel é que pesa.
+  **Como ler:** a coluna `2` é o `IpAddressCount` — quantas ENIs cada endpoint
+  tem. Duas por endpoint é o **mínimo** que a AWS aceita (uma por AZ, para o
+  serviço não morrer com uma zona), então 4 ENIs é o piso deste desenho, não uma
+  escolha sua. `OPERATIONAL` quer dizer só "as ENIs existem e estão saudáveis" —
+  **não** quer dizer que alguma consulta funciona. Foi por isso que o passo 4
+  precisou de troubleshooting mesmo com as duas linhas verdes aqui.
+
+  **O que isso prova:** a fatura não olha o tráfego. São 4 ENIs a US$ 0,125/h
+  cobradas **por existirem** — as consultas que você fez custaram frações de
+  centavo, o aluguel é que pesa. Guarde a proporção para a prova: DNS híbrido é
+  caro no **capital instalado**, não no uso, e é isso que justifica centralizar
+  os endpoints numa VPC compartilhada e distribuir só as regras via RAM.
 
 - [ ] **6. On-premises → AWS: as duas tentativas ingênuas, e por que falham**
 
@@ -881,6 +911,12 @@ eles estão fixos no código justamente para você poder conferir de cabeça.
   ```bash
   dig @10.32.0.2 app.aws.corp.internal
   ```
+
+  **O que o comando quer dizer, em português:** *"Servidor `10.32.0.2`, **você**
+  sabe o IP de `app.aws.corp.internal`?"* O `@` é a novidade: até agora você
+  deixou o `dig` usar o servidor padrão da máquina; aqui você escolhe para quem
+  ligar. É a diferença entre "pergunte a quem você costuma perguntar" e "pergunte
+  a este aqui".
 
   ```text
   ;; ->>HEADER<<- opcode: QUERY, status: NXDOMAIN, id: 19442
@@ -894,19 +930,38 @@ eles estão fixos no código justamente para você poder conferir de cabeça.
   dig @10.31.0.2 app.aws.corp.internal +time=3 +tries=1
   ```
 
+  *"Servidor `10.31.0.2` — o resolver da VPC **da AWS**, que resolveu esse nome
+  lindamente no passo 3 — você sabe o IP de `app.aws.corp.internal`?"* Os dois
+  `+` no fim são só impaciência: espere 3 segundos, tente uma vez só. Sem eles, o
+  `dig` levaria 15 segundos para desistir.
+
   ```text
   ;; communications error to 10.31.0.2#53: timed out
 
   ;; no servers could be reached
   ```
 
-  **Como ler:** os dois erros são **diagnósticos opostos e ambos importam**. O
-  primeiro é `NXDOMAIN`: alguém respondeu, e respondeu que o nome não existe — o
-  `.2` da VPC on-premises está vivo, só não tem a zona privada associada a ele.
-  O segundo é **timeout, sem resposta nenhuma**: o pacote chegou (o peering
-  funciona, a rota existe), mas o `.2` da outra VPC **não atende quem não é da
-  VPC dele**. Não é firewall, não é rota, não é NACL — é o comportamento do
-  serviço, e não existe configuração para mudá-lo.
+  **Como ler — dois fracassos que não se parecem em nada:**
+
+  | Tentativa | Resposta | O que significa |
+  |---|---|---|
+  | `@10.32.0.2` (o `.2` daqui) | `NXDOMAIN` | **Alguém atendeu** e disse "esse nome não existe". O resolver da VPC on-prem está vivo, saudável e sincero: a private hosted zone não está associada à VPC **dele**, então para ele o nome realmente não existe. |
+  | `@10.31.0.2` (o `.2` de lá) | timeout | **Ninguém atendeu.** O pacote chegou — o peering funciona, a rota existe, você consegue pingar aquela faixa. O resolver simplesmente **não responde a quem não é da VPC dele**. |
+
+  A segunda linha é a frase mais importante do lab: o `.2` de uma VPC atende
+  **apenas de dentro dela**. Não é firewall, não é rota, não é NACL, não é
+  security group — é o comportamento do serviço, e **não existe configuração para
+  mudar isso**. Não adianta procurar o botão: ele não existe.
+
+  Repare que o `.2` da AWS não está escondido nem quebrado — ele acabou de
+  responder no passo 3, para uma instância que estava dentro da VPC. A mesma
+  pergunta, para o mesmo servidor, muda de resultado só porque **mudou quem
+  pergunta**. Essa é a linha da fronteira, e o inbound endpoint existe para ser a
+  única porta que a atravessa.
+
+  Compare com o passo 4 e você fecha o raciocínio: lá, um nome de fora foi
+  resolvido **sem que a instância soubesse de nada**, porque havia um endpoint no
+  caminho. Aqui não há endpoint nenhum no caminho, e por isso não há caminho.
   **Se o segundo comando responder** em vez de dar timeout: você o rodou na
   máquina errada — confira o `hostname`, precisa ser `ip-10-32-64-10`.
   **O que isso prova:** este é o timeout que justifica o inbound endpoint existir
@@ -924,9 +979,19 @@ eles estão fixos no código justamente para você poder conferir de cabeça.
   dig @10.31.64.10 app.aws.corp.internal +short
   ```
 
+  **O que o comando quer dizer, em português:** *"Servidor `10.31.64.10` — o
+  INBOUND endpoint — qual é o IP de `app.aws.corp.internal`?"* É a **mesma
+  pergunta** que deu timeout no passo 6; mudou só o número depois do `@`. O
+  `+short` corta toda a papelada e imprime só a resposta.
+
   ```text
   10.31.64.40
   ```
+
+  Um IP onde antes havia silêncio. É literalmente para isso que servem as duas
+  ENIs que você está pagando: elas são um endereço **dentro** da VPC que aceita
+  perguntas **de fora** e as repassa ao `.2`, que só atende de dentro. O endpoint
+  não resolve nada — ele é o balcão de atendimento na fronteira.
 
   Agora prove o caminho completo, como um cliente do datacenter faria — através
   do dnsmasq, que tem o conditional forwarding configurado:
@@ -935,13 +1000,26 @@ eles estão fixos no código justamente para você poder conferir de cabeça.
   dig @127.0.0.1 app.aws.corp.internal +short
   ```
 
+  *"Servidor aqui desta máquina mesmo, qual é o IP de `app.aws.corp.internal`?"*
+  `127.0.0.1` é o próprio host — a pergunta vai para o dnsmasq local, que é o que
+  qualquer estação do datacenter faria.
+
   ```text
   10.31.64.40
   ```
 
-  **Como ler:** a primeira consulta é o teste de conectividade (o balcão atende);
-  a segunda é o desenho real (o cliente pergunta ao DNS corporativo, que
-  encaminha sozinho). Confirme no log qual dos dois caminhos o dnsmasq usou:
+  **Como ler:** o mesmo IP, por dois caminhos diferentes, e a diferença entre eles
+  é o desenho da solução:
+
+  | Comando | Quem é o cliente | O que está sendo testado |
+  |---|---|---|
+  | `dig @10.31.64.10` | você, na mão | **Conectividade.** O balcão atende? Rota, security group e endpoint estão de pé? |
+  | `dig @127.0.0.1` | o dnsmasq corporativo | **A arquitetura real.** A estação pergunta ao DNS de sempre, e é o DNS que sabe encaminhar. Ninguém no datacenter precisa conhecer o IP do endpoint. |
+
+  O segundo é o que importa num desenho de verdade: você configura o forwarding
+  **uma vez, no servidor DNS corporativo**, e nenhuma máquina do datacenter é
+  tocada. É o espelho exato do que a resolver rule faz do lado da AWS.
+  Confirme no log qual caminho o dnsmasq usou:
 
   ```bash
   sudo journalctl -u dnsmasq --no-pager -n 6
@@ -952,6 +1030,13 @@ eles estão fixos no código justamente para você poder conferir de cabeça.
   Aug 12 14:11:02 ip-10-32-64-10 dnsmasq[1421]: forwarded app.aws.corp.internal to 10.31.64.10
   Aug 12 14:11:02 ip-10-32-64-10 dnsmasq[1421]: reply app.aws.corp.internal is 10.31.64.40
   ```
+
+  Três linhas, três verbos, e o do meio é o lab inteiro: `query` (chegou a
+  pergunta), **`forwarded` — "esse nome não é meu, mandei para o inbound
+  endpoint"** —, `reply` (voltou com o IP). Compare com o passo 5, onde a segunda
+  linha era `config`: lá o dnsmasq respondeu de cabeça porque o nome era dele;
+  aqui ele delegou. O verbo do meio é como você lê, em qualquer servidor DNS, se
+  ele **sabia** ou se ele **perguntou**.
 
   **Se falhar** com timeout no primeiro comando: o security group do inbound
   endpoint ([main.tf:142](main.tf:142)) é o suspeito — ele precisa de ingress 53
@@ -976,6 +1061,11 @@ eles estão fixos no código justamente para você poder conferir de cabeça.
     --vpc-id vpc-0a1b2c3d4e5f60718 --region us-east-1
   ```
 
+  **O que o comando quer dizer, em português:** *"Route 53, pare de aplicar esta
+  regra nesta VPC."* Note o que ele **não** faz: não apaga a regra, não mexe no
+  endpoint, não toca em rede. É o equivalente a tirar um aviso do mural — o aviso
+  continua existindo na gaveta, só ninguém mais o lê.
+
   Espere ~1 min e repita o passo 4, ☁️ **na EC2 da AWS**:
 
   ```bash
@@ -989,10 +1079,24 @@ eles estão fixos no código justamente para você poder conferir de cabeça.
   ;; flags: qr rd ra; QUERY: 1, ANSWER: 0, AUTHORITY: 1, ADDITIONAL: 1
   ```
 
-  **Como ler:** `NXDOMAIN`, não timeout, não SERVFAIL. Sem a associação, o `.2`
-  nem tenta encaminhar: ele trata `onprem.corp.internal` como um domínio público
-  qualquer, não acha, e responde com autoridade que o nome não existe. Nada mudou
-  na rede, no SG ou no endpoint.
+  **Como ler:** `NXDOMAIN` — e o que interessa é o que ele **não** é.
+
+  | Se tivesse vindo | Você procuraria | Mas veio |
+  |---|---|---|
+  | timeout | rota, security group, instância caída | ❌ |
+  | `SERVFAIL` | o servidor do datacenter | ❌ |
+  | `NXDOMAIN` | **a regra: existe? está associada a esta VPC?** | ✅ |
+
+  Sem a associação, o `.2` **nem tenta encaminhar**. Para ele,
+  `onprem.corp.internal` virou um domínio da internet como outro qualquer: ele
+  consultou o DNS público, ninguém reivindicou o nome, e ele respondeu com
+  autoridade que não existe. A pergunta nunca chegou perto do datacenter — nada
+  mudou na rede, no security group ou no endpoint, e mesmo assim tudo parou.
+
+  E é aqui que mora a pegadinha de custo: o outbound endpoint continua
+  `OPERATIONAL` e as duas ENIs continuam sendo cobradas normalmente enquanto o
+  DNS híbrido está 100% quebrado. **Saúde do endpoint não é sinal de
+  funcionamento** — você já viu isso no passo 5 e está vendo de novo.
   **Reverter** — deixe o Terraform recriar a associação, para o state não ficar
   divergente:
 
@@ -1017,12 +1121,21 @@ eles estão fixos no código justamente para você poder conferir de cabeça.
   sudo systemctl stop dnsmasq
   ```
 
+  **O que o comando quer dizer, em português:** *"systemd, mate o processo do
+  dnsmasq."* A instância continua ligada, a rede continua inteira, o peering
+  continua de pé — só não há mais ninguém atendendo na porta 53. É o mais perto
+  que dá de simular "o servidor DNS do datacenter caiu de madrugada".
+
   Agora ☁️ **na EC2 da AWS**, pergunte por um nome que você ainda **não**
   consultou (para não pegar resposta em cache):
 
   ```bash
   dig dns.onprem.corp.internal
   ```
+
+  O nome é `dns.` de propósito, e não o `db.` do passo 4: aquele já foi resolvido
+  e pode estar guardado em cache, o que devolveria a resposta antiga e esconderia
+  a falha que você acabou de provocar.
 
   **Saída esperada** — demora alguns segundos até aparecer:
 
@@ -1031,12 +1144,24 @@ eles estão fixos no código justamente para você poder conferir de cabeça.
   ;; flags: qr rd ra; QUERY: 1, ANSWER: 0, AUTHORITY: 0, ADDITIONAL: 1
   ```
 
-  **Como ler:** `SERVFAIL`, e a diferença para o `NXDOMAIN` do passo 8 é o
-  conteúdo inteiro deste passo. `NXDOMAIN` = "eu sei responder e a resposta é que
-  não existe" → falta regra, falta associação, falta zona. `SERVFAIL` = "eu sabia
-  para onde perguntar e não recebi resposta" → alvo caído, porta fechada,
-  security group bloqueando, rota faltando. Numa questão de troubleshooting, essa
-  única palavra separa dois conjuntos de causas que não têm interseção.
+  **Como ler:** `SERVFAIL`. Coloque lado a lado com o passo 8 e você tem o mapa de
+  troubleshooting inteiro do DNS híbrido em duas palavras:
+
+  | Palavra | O resolver está dizendo | Procure em |
+  |---|---|---|
+  | `NXDOMAIN` | "Eu sei responder, e a resposta é que **esse nome não existe**." | Configuração de DNS: falta a regra, falta a associação, falta a zona, o nome está escrito errado. |
+  | `SERVFAIL` | "Eu sabia **para onde** perguntar, perguntei, e **deu errado**." | Caminho e alvo: servidor caído, porta fechada, security group, rota, target IP errado na regra. |
+
+  A fronteira entre as duas é limpa e não tem interseção: `NXDOMAIN` nunca é
+  problema de rede, `SERVFAIL` nunca é problema de regra. Numa questão que
+  descreve o sintoma em uma frase, essa única palavra já elimina metade das
+  alternativas.
+
+  E note a demora antes da resposta aparecer: o resolver não desiste na hora —
+  ele tenta, espera, tenta de novo, e só então admite a falha. Esse silêncio de
+  alguns segundos é o mesmo que você viu no passo 4 quando o dnsmasq estava mudo;
+  a diferença é que **lá** o `dig` desistia antes do resolver e você via
+  `timed out` em vez de `SERVFAIL`.
   **Reverter:**
 
   ```bash
