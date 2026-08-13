@@ -270,6 +270,25 @@ economiza.
        ensina a outra metade — e é o que a questão descreve.
      - O primeiro passo pega os outputs do Terraform, porque todo o resto usa:
        ./scripts/tf.sh output certifications/sap-c02/labs/lab-NN-slug
+     - **Se qualquer passo do roteiro roda DENTRO de uma instância, o passo logo
+       depois do output é abrir a sessão — com o comando completo.** Nunca escreva
+       só "abra a sessão SSM" ou "use o comando session_commands": quem volta ao
+       lab em seis semanas não lembra a sintaxe do `start-session`, e uma
+       instrução que manda montar o comando a partir de um output é um passo que
+       falta. O passo de sessão tem, obrigatoriamente:
+         * o comando literal, um por instância, com ID de exemplo e `--region`;
+         * a saída literal (`Starting session with SessionId: ...` + o prompt novo);
+         * como confirmar em qual máquina você está (`hostname`), quando o lab tem
+           mais de uma sessão aberta ao mesmo tempo — dois terminais com prompt
+           `sh-5.2$` são indistinguíveis, e colar o comando na sessão errada
+           inverte a conclusão do lab;
+         * os dois erros que sempre acontecem: `SessionManagerPlugin is not found`
+           (falta o plugin no laptop) e `TargetNotConnected` (o agente ainda não
+           registrou — espere ~2 min, ou a instância não alcança o Systems
+           Manager). O segundo é sintoma de rede, não de IAM, e vale dizer isso.
+       No Terraform, exponha um output `session_commands` com o comando já
+       montado por instância (veja `lab-03-dns-hibrido/outputs.tf`) — assim o
+       passo 1 já entrega o que o passo de sessão manda copiar.
      - Diga no começo que os IDs das saídas de exemplo são fictícios e que o que
        importa é o formato.
 
@@ -306,7 +325,58 @@ As saídas abaixo são exemplos com IDs fictícios; o que importa é o formato.
   **Como ler:** quais valores você vai reusar nos próximos passos.
   **Se falhar:** causa provável e correção.
 
-- [ ] **2. TÍTULO EM AÇÃO**
+<!-- O passo abaixo é OBRIGATÓRIO em todo lab que tenha algum comando rodando
+     dentro de uma instância — e deve ser APAGADO nos labs que não têm EC2.
+     Repita o bloco de comando para cada instância que o roteiro usa. -->
+
+- [ ] **2. Entrar na instância pelo Session Manager**
+
+  💻 **No seu laptop.** Um terminal por instância.
+  **O que este passo faz:** abre um shell dentro da EC2 sem IP público, sem porta
+  22 e sem chave — quem inicia a conexão é o agente de dentro da instância. O
+  comando pronto sai do output `session_commands` do passo 1; troque o ID de
+  exemplo pelo seu.
+
+  ```bash
+  aws ssm start-session --target i-05e3f0c9c4a2b7d18 --region us-east-1
+  ```
+
+  **Saída esperada:**
+
+  ```text
+  Starting session with SessionId: usuario-abc123def4567890
+
+  sh-5.2$
+  ```
+
+  **Como ler:** o prompt virou `sh-5.2$` — você não está mais no laptop. Com mais
+  de uma sessão aberta, confirme em qual você está antes de cada comando:
+
+  ```bash
+  hostname
+  ```
+
+  ```text
+  ip-10-NN-64-40.ec2.internal
+  ```
+
+  Deixe a sessão aberta até o fim do roteiro; para sair, `exit`.
+  **Se falhar** com `SessionManagerPlugin is not found`: falta o
+  `session-manager-plugin` no laptop — instale e repita. Com
+  `TargetNotConnected`: o agente ainda não se registrou (espere ~2 min) ou a
+  instância não alcança o Systems Manager — é problema de rota/endpoint/NAT, não
+  de IAM. Confira o `PingStatus`:
+
+  ```bash
+  aws ssm describe-instance-information \
+    --query 'InstanceInformationList[].[InstanceId,PingStatus]' \
+    --output table --region us-east-1
+  ```
+
+  **O que isso prova:** acesso administrativo sem bastion e sem porta de entrada
+  aberta — a resposta padrão do exame para "acessar instância em subnet privada".
+
+- [ ] **3. TÍTULO EM AÇÃO**
 
   MARCADOR **onde exatamente.**
   **O que este passo faz:** uma ou duas frases simples, antes do comando.
@@ -325,7 +395,7 @@ As saídas abaixo são exemplos com IDs fictícios; o que importa é o formato.
   **Se falhar:** mensagem literal do erro e a correção.
   **O que isso prova:** a frase que você quer lembrar na hora da questão.
 
-- [ ] **3. Quebrar de propósito: O-QUE-DESLIGAR**
+- [ ] **4. Quebrar de propósito: O-QUE-DESLIGAR**
 
   MARCADOR **onde.**
   **O que este passo faz:** o que você desliga e, principalmente, o que você NÃO
@@ -345,7 +415,7 @@ As saídas abaixo são exemplos com IDs fictícios; o que importa é o formato.
 
   **O que isso prova:** por que essa dependência existe.
 
-- [ ] **4. Conferir a conta**
+- [ ] **5. Conferir a conta**
 
   🌐 **No navegador**, D+1. Console → Billing and Cost Management → Cost Explorer
   → filtro Tag → chave `Lab` → valor `lab-NN-slug`.
