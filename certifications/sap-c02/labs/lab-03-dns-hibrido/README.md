@@ -26,7 +26,7 @@ O lab existe para gravar duas coisas na memória muscular:
    de vista da VPC.
 2. **O resolver da VPC (o `.2`) não atende de fora.** É por isso que "aponte o
    servidor DNS on-premises para 10.31.0.2" — que parece a solução óbvia e
-   grátis — simplesmente não funciona. O passo 5 mostra o timeout.
+   grátis — simplesmente não funciona. O passo 6 mostra o timeout.
 
 De quebra, o lab desmonta um terceiro distrator: **não existe associar uma
 private hosted zone a uma rede on-premises**. Zona privada associa a VPC.
@@ -77,7 +77,7 @@ associadas àquela VPC, e mais nada. Se a zona estiver associada só à VPC do l
 pôr um inbound endpoint aqui não resolve; o que faltava era a **associação da
 zona**, não o endpoint. Corolário do outro lado: a linha externa (outbound) e a
 instrução (rule) também são coisas separadas, e você paga a linha mesmo com a
-instrução descolada — o passo 7 mostra isso custando dinheiro e não resolvendo
+instrução descolada — o passo 8 mostra isso custando dinheiro e não resolvendo
 nada.
 
 ## Onde isso aparece no mundo real
@@ -181,7 +181,7 @@ pelo `OUTBOUND endpoint`. Repare que a regra e o endpoint são **duas caixas
 separadas**: a regra diz _para onde_, o endpoint é _por onde_. Do endpoint o
 pacote UDP/53 atravessa o peering e chega ao dnsmasq — e é o **IP do ENI do
 outbound** (`10.31.64.20`) que aparece como origem no log do datacenter, nunca o
-IP da EC2. O passo 4 do roteiro lê esse log.
+IP da EC2. O passo 5 do roteiro lê esse log.
 
 **3. On-premises → AWS (seta 3 de volta, subindo pelo INBOUND).** O sentido é o
 que muda tudo. Agora quem inicia é o dnsmasq: ele tem a instrução de encaminhar
@@ -190,7 +190,7 @@ pergunta ao mesmo `.2` de sempre. Note que a seta termina em `R2`, não numa
 lista própria — o balcão não sabe nada, ele só repassa.
 
 **4. O caminho que falha (vermelho, seta 5).** A seta com **x nas duas pontas**
-liga o dnsmasq direto ao `.2` da VPC vizinha e é o passo 5 do roteiro:
+liga o dnsmasq direto ao `.2` da VPC vizinha e é o passo 6 do roteiro:
 `dig @10.31.0.2` dá **timeout**. Ela está desenhada porque a ausência de seta não
 prova nada — e porque essa é a tentativa que todo mundo faz primeiro, já que o
 peering está lá e o pacote _deveria_ chegar. Ele chega; o `.2` é que não responde
@@ -220,16 +220,16 @@ Cada termo do diagrama, onde ele está no código e por que existe **neste** lab
 | Termo                                | Onde está                                                  | O que é e para que serve aqui                                                                                                                                                                             |
 | ------------------------------------ | ---------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Resolver da VPC (`.2`)**           | `local.aws_vpc_resolver_ip`                                | O DNS embutido em toda VPC, sempre no segundo IP do CIDR (`10.31.0.2`), também alcançável em `169.254.169.253`. Grátis, sem ENI, sem HA para configurar — e **só responde a quem está dentro da VPC dele**. |
-| **Private hosted zone (PHZ)**        | `aws_route53_zone.aws_private` ([main.tf:115](main.tf:115)) | Zona DNS que só existe para as VPCs associadas a ela. Aqui está associada a **uma** VPC, e é isso que faz o passo 5 dar NXDOMAIN quando perguntado do outro lado.                                          |
+| **Private hosted zone (PHZ)**        | `aws_route53_zone.aws_private` ([main.tf:115](main.tf:115)) | Zona DNS que só existe para as VPCs associadas a ela. Aqui está associada a **uma** VPC, e é isso que faz o passo 6 dar NXDOMAIN quando perguntado do outro lado.                                          |
 | **Associação de zona ↔ VPC**         | bloco `vpc { }` em [main.tf:119](main.tf:119)              | O que "entrega a lista telefônica" a uma VPC. É o parâmetro que a maioria das questões esquece — e o único jeito de mais uma VPC enxergar a zona. Não aceita rede on-premises.                             |
 | **Inbound endpoint**                 | `aws_route53_resolver_endpoint.inbound` ([main.tf:209](main.tf:209)) | Par de ENIs com IP da sua subnet que **recebe** consultas vindas de fora e as entrega ao `.2`. É o que dá ao datacenter um endereço para onde encaminhar. US$ 0,125/h por ENI.                    |
 | **Outbound endpoint**                | `aws_route53_resolver_endpoint.outbound` ([main.tf:227](main.tf:227)) | Par de ENIs por onde o `.2` **envia** consultas para um servidor DNS externo. Sem ele não existe forwarding rule — a regra exige um endpoint. US$ 0,125/h por ENI.                                |
 | **Os dois IPs obrigatórios**         | dois blocos `ip_address` por endpoint                      | Resolver endpoint exige no mínimo dois IPs, em duas AZs. Não é opcional, e é por isso que a unidade de custo real é "2 ENIs", nunca uma.                                                                   |
 | **Resolver rule `FORWARD`**          | `aws_route53_resolver_rule.onprem` ([main.tf:258](main.tf:258)) | "Nome que termina em `onprem.corp.internal` vai para `10.32.64.10:53` por este outbound endpoint." Custa zero e, sozinha, não faz efeito nenhum.                                                     |
-| **Associação regra ↔ VPC**           | `aws_route53_resolver_rule_association.onprem` ([main.tf:272](main.tf:272)) | O objeto que faz a regra valer para uma VPC. Uma regra, N associações. O passo 7 apaga esta linha e mostra o NXDOMAIN aparecer com o endpoint intacto.                               |
+| **Associação regra ↔ VPC**           | `aws_route53_resolver_rule_association.onprem` ([main.tf:272](main.tf:272)) | O objeto que faz a regra valer para uma VPC. Uma regra, N associações. O passo 8 apaga esta linha e mostra o NXDOMAIN aparecer com o endpoint intacto.                               |
 | **Regra `SYSTEM` / `RECURSIVE`**     | **não existem neste lab**                                  | Os outros dois tipos: `RECURSIVE` é o comportamento padrão (o `.2` resolve sozinho) e `SYSTEM` **cancela** um forward herdado para um subdomínio. `SYSTEM` é a resposta de "encaminhe tudo menos X".      |
 | **Conditional forwarding**           | [`assets/dnsmasq-user-data.sh.tftpl`](assets/dnsmasq-user-data.sh.tftpl) | O espelho da resolver rule, do lado de lá: `server=/aws.corp.internal/10.31.64.10`. Só este domínio sai para a AWS; o resto continua indo para o resolver local.                     |
-| **NXDOMAIN vs. SERVFAIL**            | passos 7 e 8                                               | `NXDOMAIN` = alguém respondeu com autoridade "esse nome não existe" (falta regra/zona). `SERVFAIL` = havia para onde perguntar e ninguém respondeu (alvo caído, SG bloqueando). Diagnósticos opostos.     |
+| **NXDOMAIN vs. SERVFAIL**            | passos 8 e 9                                               | `NXDOMAIN` = alguém respondeu com autoridade "esse nome não existe" (falta regra/zona). `SERVFAIL` = havia para onde perguntar e ninguém respondeu (alvo caído, SG bloqueando). Diagnósticos opostos.     |
 | **RAM (Resource Access Manager)**    | **não existe neste lab** (exige 2ª conta)                  | Compartilha a **regra** com outras contas, que a associam às VPCs delas. É o que torna o par de endpoints centralizado viável — e a resposta da pergunta 5.                                               |
 
 ### Rede e acesso
@@ -240,10 +240,10 @@ Cada termo do diagrama, onde ele está no código e por que existe **neste** lab
 | **SG do inbound endpoint**     | `aws_security_group.resolver_inbound` ([main.tf:142](main.tf:142)) | Precisa de **ingress** 53 UDP **e** TCP vindo da rede de fora. Errar isto dá um endpoint `OPERATIONAL` que não resolve nada — o sintoma clássico de troubleshooting.          |
 | **SG do outbound endpoint**    | `aws_security_group.resolver_outbound` ([main.tf:174](main.tf:174)) | Precisa de **egress** 53 UDP e TCP em direção ao servidor externo. A direção do SG segue a direção do endpoint; trocar os dois é o erro mais comum.                          |
 | **53 em TCP, além de UDP**     | os dois SGs acima                                    | DNS usa UDP por padrão e cai para TCP quando a resposta não cabe em 512 bytes (ou com DNSSEC). Liberar só UDP funciona no lab e falha em produção, de forma intermitente.                  |
-| **`dnsmasq`**                  | [`assets/dnsmasq-user-data.sh.tftpl`](assets/dnsmasq-user-data.sh.tftpl) | O "servidor DNS corporativo". Autoritativo de `onprem.corp.internal` (`local=`), com `log-queries` ligado — é o log que o passo 4 lê para provar quem perguntou.          |
+| **`dnsmasq`**                  | [`assets/dnsmasq-user-data.sh.tftpl`](assets/dnsmasq-user-data.sh.tftpl) | O "servidor DNS corporativo". Autoritativo de `onprem.corp.internal` (`local=`), com `log-queries` ligado — é o log que o passo 5 lê para provar quem perguntou.          |
 | **NAT instance**               | `nat_strategy = "instance"` ([main.tf:25](main.tf:25)) | ~US$ 3/mês por VPC. Existe só para as EC2 alcançarem o Systems Manager e instalarem `dnsmasq`/`bind-utils`. O trio de interface endpoints do SSM custaria US$ 1,44/dia.               |
 | **Retry no `user_data`**       | [main.tf:352](main.tf:352) e no template do dnsmasq  | O Terraform espera a NAT instance ficar `running`, não o `user_data` **dela** terminar. Sem o laço de retry, o `dnf install` do outro lado corre antes do MASQUERADE existir e falha.       |
-| **Session Manager**            | `aws ssm start-session`                              | Único acesso às duas EC2: sem IP público, sem porta 22, sem chave. Ver o [lab 01](../lab-01-vpc-base/) para o mecanismo.                                                                   |
+| **Session Manager**            | `aws ssm start-session` — o passo 2 do roteiro       | Único acesso às duas EC2: sem IP público, sem porta 22, sem chave. Os comandos prontos saem do output `session_commands`. Ver o [lab 01](../lab-01-vpc-base/) para o mecanismo.             |
 | **IMDSv2 (`http_tokens`)**     | [main.tf:359](main.tf:359)                           | Token obrigatório no metadata service. Não tem relação com o tema do lab; é o padrão do repositório.                                                                                       |
 
 ## Executar
@@ -258,8 +258,9 @@ Cada termo do diagrama, onde ele está no código e por que existe **neste** lab
 
 Depois do apply, **espere ~4 min antes do passo 2**. Duas coisas precisam
 acontecer nesse tempo, e nenhuma delas é instantânea: as instâncias registram no
-Systems Manager (~2 min) e o `user_data` instala `dig` e o `dnsmasq` passando
-pela NAT instance, que ela mesma acabou de subir. Se a sessão abrir e o `dig`
+Systems Manager (~2 min) — antes disso o `start-session` responde
+`TargetNotConnected` — e o `user_data` instala `dig` e o `dnsmasq` passando pela
+NAT instance, que ela mesma acabou de subir. Se a sessão abrir e o `dig`
 responder `command not found`, o `user_data` ainda está rodando — espere e repita.
 
 ## O que observar
@@ -277,7 +278,8 @@ atrapalha um pouco: inverte a conclusão. Todo passo começa dizendo onde roda.
 | 🏢 **No "datacenter"**  | Sessão SSM na instância `-onprem-dns`, `10.32.0.0/16` | `hostname` responde `ip-10-32-64-10.ec2.internal`             |
 
 **Abra três terminais** e deixe as duas sessões SSM abertas o lab inteiro — você
-vai alternar entre elas nos passos 5 a 8, e reabrir sessão custa ~1 min cada vez.
+vai alternar entre elas nos passos 6 a 9, e reabrir sessão custa ~1 min cada vez.
+O passo 2 mostra o comando exato para abrir cada uma.
 
 As saídas abaixo são exemplos com IDs fictícios; **os IPs, esses, são reais** —
 eles estão fixos no código justamente para você poder conferir de cabeça.
@@ -329,13 +331,74 @@ eles estão fixos no código justamente para você poder conferir de cabeça.
   **Como ler:** decore quatro números e o lab fica fácil — `.10` é sempre
   **inbound**, `.20` é sempre **outbound**, `10.31.64.40` é a EC2 da AWS e
   `10.32.64.10` é o servidor DNS do datacenter. `resolver_rule_id` é usado no
-  passo 7.
+  passo 8.
   **Se falhar** com `No outputs found`: o apply não rodou. Confira com
   `./scripts/tf.sh list`.
 
-- [ ] **2. Provar que a private hosted zone funciona — de dentro da VPC dela**
+- [ ] **2. Abrir as duas sessões: entrar nas instâncias pelo Session Manager**
 
-  ☁️ **Na EC2 da AWS.** Abra a sessão com o comando `session_commands.aws`.
+  💻 **No seu laptop**, em **dois terminais novos** — um para cada instância.
+  **O que este passo faz:** abre um shell dentro de cada EC2 pelo Session
+  Manager. Nenhuma das duas tem IP público, porta 22 aberta ou par de chaves:
+  quem inicia a conexão é o agente **de dentro** da instância, que sai pela NAT
+  instance até o endpoint do Systems Manager. São os dois valores de
+  `session_commands` do passo 1 — troque os IDs de exemplo pelos seus.
+
+  No **primeiro terminal**, a EC2 da AWS (marcador ☁️ do roteiro):
+
+  ```bash
+  aws ssm start-session --target i-05e3f0c9c4a2b7d18 --region us-east-1
+  ```
+
+  No **segundo terminal**, o servidor DNS do "datacenter" (marcador 🏢):
+
+  ```bash
+  aws ssm start-session --target i-0b6d7e8f9a0b1c2d3 --region us-east-1
+  ```
+
+  **Saída esperada** em cada terminal:
+
+  ```text
+  Starting session with SessionId: usuario-abc123def4567890
+
+  sh-5.2$
+  ```
+
+  **Como ler:** o prompt vira `sh-5.2$` — você **não está mais no laptop**. Como
+  os dois terminais ficam idênticos na tela, confirme em qual você está antes de
+  cada comando dos próximos passos:
+
+  ```bash
+  hostname
+  ```
+
+  ```text
+  ip-10-31-64-40.ec2.internal
+  ```
+
+  `ip-10-31-...` é a EC2 da AWS (☁️); `ip-10-32-...` é o datacenter (🏢). Deixe as
+  duas sessões abertas até o fim do lab — reabrir custa ~1 min cada vez. Para sair
+  de uma sessão, `exit`.
+  **Se falhar** com `SessionManagerPlugin is not found`: falta o
+  `session-manager-plugin` no laptop — instale-o
+  ([documentação da AWS](https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-working-with-install-plugin.html))
+  e repita. Com `TargetNotConnected`: a instância subiu mas o agente ainda não se
+  registrou, ou não consegue sair para o Systems Manager — espere ~2 min e repita;
+  se insistir, confira se a instância aparece como `Online` em:
+
+  ```bash
+  aws ssm describe-instance-information \
+    --query 'InstanceInformationList[].[InstanceId,PingStatus]' \
+    --output table --region us-east-1
+  ```
+
+  **O que isso prova:** acesso administrativo sem bastion, sem chave SSH e sem
+  porta de entrada — a instância é que sai. É a resposta padrão do exame para
+  "acesso a instâncias em subnet privada sem expor SSH".
+
+- [ ] **3. Provar que a private hosted zone funciona — de dentro da VPC dela**
+
+  ☁️ **Na EC2 da AWS**, no primeiro terminal do passo 2.
   **O que este passo faz:** resolve um nome que só existe na zona privada. É a
   linha de base do lab: antes de estudar o que atravessa a fronteira, confirme o
   que funciona sem atravessar nada.
@@ -368,7 +431,7 @@ eles estão fixos no código justamente para você poder conferir de cabeça.
   funcionar **dentro** da VPC associada. Tudo que este lab tem de caro existe só
   para atravessar a fronteira.
 
-- [ ] **3. AWS → on-premises: resolver o domínio do "datacenter"**
+- [ ] **4. AWS → on-premises: resolver o domínio do "datacenter"**
 
   ☁️ **Na EC2 da AWS**, no mesmo prompt.
   **O que este passo faz:** pergunta por um nome que o resolver da AWS **não**
@@ -409,19 +472,19 @@ eles estão fixos no código justamente para você poder conferir de cabeça.
   64 bytes from 10.32.64.10: icmp_seq=2 ttl=127 time=1.31 ms
   ```
 
-  **Se falhar** com `status: SERVFAIL`: o dnsmasq não subiu — pule para o passo 8,
+  **Se falhar** com `status: SERVFAIL`: o dnsmasq não subiu — pule para o passo 9,
   que trata exatamente desse sintoma. Com `NXDOMAIN`: a regra não está associada
-  a esta VPC (passo 7).
+  a esta VPC (passo 8).
   **O que isso prova:** outbound endpoint + forwarding rule resolvem nome
   on-premises **sem tocar em nenhuma instância**. Numa questão que diga "200
   instâncias precisam entrar no domínio do AD", é isto — não `/etc/hosts`, não
   mudar o `resolv.conf`, não um BIND em EC2.
 
-- [ ] **4. Ver de qual IP a pergunta chegou — e o que isso custa**
+- [ ] **5. Ver de qual IP a pergunta chegou — e o que isso custa**
 
   🏢 **No "datacenter"**, na sessão da instância `-onprem-dns`.
   **O que este passo faz:** lê o log do dnsmasq. Ele registra cada consulta com o
-  IP de origem, e esse IP é a prova de por onde a pergunta do passo 3 passou.
+  IP de origem, e esse IP é a prova de por onde a pergunta do passo 4 passou.
 
   ```bash
   sudo journalctl -u dnsmasq --no-pager -n 10
@@ -461,7 +524,7 @@ eles estão fixos no código justamente para você poder conferir de cabeça.
   a US$ 0,125/h, cobradas por existirem — as duas consultas que você fez até aqui
   custaram frações de centavo, o aluguel é que pesa.
 
-- [ ] **5. On-premises → AWS: as duas tentativas ingênuas, e por que falham**
+- [ ] **6. On-premises → AWS: as duas tentativas ingênuas, e por que falham**
 
   🏢 **No "datacenter"**. Este é o passo mais importante do lab.
   **O que este passo faz:** tenta resolver o nome da zona privada da AWS de dois
@@ -504,10 +567,10 @@ eles estão fixos no código justamente para você poder conferir de cabeça.
   on-premises para encaminhar para o resolver da VPC", é este comando — a
   alternativa está errada, e o motivo é que o `.2` só atende de dentro.
 
-- [ ] **6. On-premises → AWS, agora pelo caminho certo**
+- [ ] **7. On-premises → AWS, agora pelo caminho certo**
 
   🏢 **No "datacenter"**, no mesmo prompt.
-  **O que este passo faz:** repete a mesma pergunta do passo 5, mudando só o
+  **O que este passo faz:** repete a mesma pergunta do passo 6, mudando só o
   destino: em vez do `.2`, um dos dois IPs do inbound endpoint.
 
   ```bash
@@ -547,12 +610,12 @@ eles estão fixos no código justamente para você poder conferir de cabeça.
   endpoint ([main.tf:142](main.tf:142)) é o suspeito — ele precisa de ingress 53
   UDP a partir de `10.32.0.0/16`. O endpoint continua `OPERATIONAL` mesmo assim.
   **O que isso prova:** os dois sentidos do DNS híbrido são **recursos
-  independentes**. Você acabou de usar inbound (aqui) e outbound (passo 3) na
+  independentes**. Você acabou de usar inbound (aqui) e outbound (passo 4) na
   mesma arquitetura, e nenhum dos dois serviria para a direção do outro. Quando a
   questão disser "o datacenter precisa resolver nomes da AWS", a resposta tem a
   palavra **inbound**; quando disser o contrário, tem **outbound** e **regra**.
 
-- [ ] **7. Quebrar de propósito: descolar a regra da VPC**
+- [ ] **8. Quebrar de propósito: descolar a regra da VPC**
 
   💻 **No seu laptop.** Você vai apagar **só a associação** — a regra continua
   existindo, o outbound endpoint continua `OPERATIONAL` e você continua pagando
@@ -566,7 +629,7 @@ eles estão fixos no código justamente para você poder conferir de cabeça.
     --vpc-id vpc-0a1b2c3d4e5f60718 --region us-east-1
   ```
 
-  Espere ~1 min e repita o passo 3, ☁️ **na EC2 da AWS**:
+  Espere ~1 min e repita o passo 4, ☁️ **na EC2 da AWS**:
 
   ```bash
   dig db.onprem.corp.internal
@@ -597,7 +660,7 @@ eles estão fixos no código justamente para você poder conferir de cabeça.
   endpoint. E guarde o sintoma: **endpoint saudável + NXDOMAIN = falta
   associação**.
 
-- [ ] **8. Quebrar de propósito de novo: derrubar o servidor do datacenter**
+- [ ] **9. Quebrar de propósito de novo: derrubar o servidor do datacenter**
 
   🏢 **No "datacenter"**. Agora a regra está de volta e o alvo dela vai sumir.
   **O que este passo faz:** para o dnsmasq. Você não toca em rede, em SG, nem em
@@ -621,7 +684,7 @@ eles estão fixos no código justamente para você poder conferir de cabeça.
   ;; flags: qr rd ra; QUERY: 1, ANSWER: 0, AUTHORITY: 0, ADDITIONAL: 1
   ```
 
-  **Como ler:** `SERVFAIL`, e a diferença para o `NXDOMAIN` do passo 7 é o
+  **Como ler:** `SERVFAIL`, e a diferença para o `NXDOMAIN` do passo 8 é o
   conteúdo inteiro deste passo. `NXDOMAIN` = "eu sei responder e a resposta é que
   não existe" → falta regra, falta associação, falta zona. `SERVFAIL` = "eu sabia
   para onde perguntar e não recebi resposta" → alvo caído, porta fechada,
@@ -638,7 +701,7 @@ eles estão fixos no código justamente para você poder conferir de cabeça.
   único servidor DNS on-premises, você acabou de criar um SPOF de resolução para
   a nuvem inteira. É por isso que a `target_ip` da regra aceita mais de um IP.
 
-- [ ] **9. Conferir a conta**
+- [ ] **10. Conferir a conta**
 
   🌐 **No navegador**, D+1. Console → **Billing and Cost Management** → **Cost
   Explorer** → filtro **Tag** → chave `Lab` → valor `lab-03-dns-hibrido`,
@@ -667,8 +730,8 @@ a pergunta ao mesmo `.2`. Os distratores: "apontar o DNS on-premises para o `.2`
 da VPC" falha por timeout; "associar a private hosted zone à rede on-premises"
 não existe como operação — zona privada só associa a VPC; "outbound endpoint" é a
 direção contrária.
-**Onde o lab prova:** passo 5 — `dig @10.31.0.2` deu timeout de dentro do
-datacenter, e o passo 6 mostrou o mesmo nome resolvendo em `dig @10.31.64.10`.
+**Onde o lab prova:** passo 6 — `dig @10.31.0.2` deu timeout de dentro do
+datacenter, e o passo 7 mostrou o mesmo nome resolvendo em `dig @10.31.64.10`.
 
 ### 2. 200 EC2 novas precisam entrar no domínio do Active Directory, que continua on-premises. Como fazer sem tocar nas instâncias?
 
@@ -681,7 +744,7 @@ por isso que essa é a resposta mesmo com 200 hosts. Os distratores: editar
 `/etc/hosts` ou `resolv.conf` via user data "funciona" e é exatamente o que a
 questão está testando se você evita; um servidor BIND em EC2 fazendo forward é a
 solução pré-2018, com HA e patching por sua conta.
-**Onde o lab prova:** passo 3 — o `dig` na EC2 resolveu um nome do datacenter com
+**Onde o lab prova:** passo 4 — o `dig` na EC2 resolveu um nome do datacenter com
 `SERVER: 10.31.0.2`, sem nenhuma alteração na instância.
 
 ### 3. Doze VPCs em cinco contas precisam do mesmo forwarding para o domínio corporativo. Qual desenho?
@@ -694,8 +757,8 @@ associação. Um par de endpoints por VPC daria 12 × 4 × US$ 0,125/h ≈ US$
 4.380/mês; centralizado são as mesmas 4 ENIs ≈ US$ 365/mês, e a regra replicada
 é de graça. A conectividade entre as VPCs (TGW, normalmente) precisa existir de
 qualquer forma para o tráfego de aplicação.
-**Onde o lab prova:** passo 4 — `IpAddressCount = 2` por endpoint mostra que o
-custo é por ENI, e o passo 7 mostra a associação sendo removida e recolocada sem
+**Onde o lab prova:** passo 5 — `IpAddressCount = 2` por endpoint mostra que o
+custo é por ENI, e o passo 8 mostra a associação sendo removida e recolocada sem
 tocar no endpoint, que é exatamente a operação que o RAM torna multi-conta.
 
 ### 4. Depois de uma mudança, as instâncias param de resolver nomes on-premises. `dig` responde SERVFAIL. Por onde começar?
@@ -708,7 +771,7 @@ on-premises aceita os IPs dos ENIs do endpoint e se a rota até lá existe.
 não obteve resposta — logo a regra existe e está associada. Se a regra ou a
 associação faltassem, a resposta seria `NXDOMAIN`. Essa distinção corta o
 espaço de causas pela metade antes de você abrir o console.
-**Onde o lab prova:** passos 7 e 8, lado a lado — mesma pergunta, mesma
+**Onde o lab prova:** passos 8 e 9, lado a lado — mesma pergunta, mesma
 instância: sem associação deu NXDOMAIN, com associação e alvo caído deu SERVFAIL.
 
 ### 5. A equipe criou o inbound endpoint, ele está `OPERATIONAL`, e o datacenter continua sem resolver os nomes da zona privada. O que investigar?
@@ -720,9 +783,9 @@ Segundo, se a **private hosted zone está associada à VPC onde o endpoint vive*
 nem visibilidade de zona. E o inbound endpoint não tem lista própria: ele enxerga
 exatamente o que o resolver daquela VPC enxerga. Endpoint na VPC A com a zona
 associada só à VPC B resolve nada, sem nenhum erro em lugar nenhum.
-**Onde o lab prova:** passo 6 — o `dig @10.31.64.10` só funciona porque a zona
+**Onde o lab prova:** passo 7 — o `dig @10.31.64.10` só funciona porque a zona
 está associada à mesma VPC dos endpoints ([main.tf:115](main.tf:115)); e o passo
-2 mostrou que a zona responde a partir dessa VPC.
+3 mostrou que a zona responde a partir dessa VPC.
 
 ### 6. A conectividade entre AWS e datacenter é por VPN, não por Direct Connect. Muda alguma coisa no desenho de DNS?
 
@@ -742,7 +805,7 @@ precisou ser diferente por causa disso.
 **Associar a zona privada também à VPC on-premises** — edite o
 `aws_route53_zone.aws_private` ([main.tf:115](main.tf:115)) para incluir um
 segundo bloco `vpc` com `module.vpc_onprem.vpc_id` e aplique. O `dig @10.32.0.2`
-do passo 5, que dava NXDOMAIN, passa a responder `10.31.64.40` — sem inbound
+do passo 6, que dava NXDOMAIN, passa a responder `10.31.64.40` — sem inbound
 endpoint nenhum. É a prova de que **PHZ resolve entre VPCs de graça**, e de que
 o endpoint só é necessário quando o outro lado **não é uma VPC**. Numa questão
 com duas VPCs (não um datacenter), associar a zona é a resposta barata e certa.
@@ -765,7 +828,7 @@ você vai querer quando o cenário da prova falar em "auditar resoluções DNS" 
 Route 53 Resolver DNS Firewall, o vizinho de prateleira).
 
 **Dar HA ao forward** — a regra aceita mais de um `target_ip`
-([main.tf:264](main.tf:264)). Adicione um segundo IP e o SERVFAIL do passo 8
+([main.tf:264](main.tf:264)). Adicione um segundo IP e o SERVFAIL do passo 9
 deixa de acontecer com um servidor caído.
 
 ## Destruir
@@ -783,7 +846,7 @@ Dois pontos de atenção no destroy:
   Terraform faz isso sozinho, mas se você associou a zona a uma segunda VPC pela
   CLI (variação acima), desfaça pela CLI também — o Terraform não sabe daquela
   associação e o destroy trava com `HostedZoneNotEmpty` ou similar.
-- Se você rodou o passo 7 e **não** reverteu com `apply`, o Terraform vai
+- Se você rodou o passo 8 e **não** reverteu com `apply`, o Terraform vai
   reclamar da associação que já não existe. Rode o `apply` antes do `destroy`.
 
 Confirme que não sobrou nada cobrando:

@@ -107,7 +107,7 @@ resource "aws_route" "onprem_to_aws" {
 # ---------------------------------------------------------------------------
 # Private hosted zone — o nome que só existe dentro da VPC associada
 #
-# O bloco `vpc` cita UMA vpc_id: a da VPC "aws". É por isso que o passo 5 do
+# O bloco `vpc` cita UMA vpc_id: a da VPC "aws". É por isso que o passo 6 do
 # roteiro dá NXDOMAIN quando você pergunta ao resolver da VPC on-prem. Não
 # existe como associar uma PHZ a uma rede on-premises — associação de zona
 # privada é sempre com VPC.
@@ -253,7 +253,7 @@ resource "aws_route53_resolver_endpoint" "outbound" {
 #
 # É essa separação que permite escrever a regra uma vez, compartilhá-la com o
 # RAM e associá-la a N VPCs de N contas — o padrão de DNS híbrido centralizado.
-# O passo 7 do roteiro apaga a associação para você ver a diferença.
+# O passo 8 do roteiro apaga a associação para você ver a diferença.
 # ---------------------------------------------------------------------------
 resource "aws_route53_resolver_rule" "onprem" {
   name                 = "${local.name_prefix}-onprem"
@@ -310,7 +310,7 @@ data "aws_ssm_parameter" "al2023" {
 
 # ---------------------------------------------------------------------------
 # EC2 do lado AWS — é ela que app.aws.corp.internal aponta, e é dela que saem
-# as consultas dos passos 2, 3 e 8.
+# as consultas dos passos 3, 4 e 9.
 # ---------------------------------------------------------------------------
 resource "aws_security_group" "app" {
   name        = "${local.name_prefix}-app"
@@ -376,7 +376,7 @@ resource "aws_instance" "app" {
 #
 # O mesmo host faz de servidor DNS e de "banco": db.onprem.corp.internal
 # aponta para o IP dele. Assim o nome resolvido pela AWS também responde a
-# ping, e o passo 3 prova nome + alcance na mesma tacada.
+# ping, e o passo 4 prova nome + alcance na mesma tacada.
 # ---------------------------------------------------------------------------
 resource "aws_security_group" "onprem_dns" {
   name        = "${local.name_prefix}-onprem-dns"

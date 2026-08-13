@@ -15,17 +15,17 @@ output "names_to_resolve" {
 }
 
 output "inbound_endpoint_ips" {
-  description = "IPs do INBOUND endpoint. É para cá que o dnsmasq encaminha as consultas do datacenter — e é o alvo do `dig @` do passo 6."
+  description = "IPs do INBOUND endpoint. É para cá que o dnsmasq encaminha as consultas do datacenter — e é o alvo do `dig @` do passo 7."
   value       = local.inbound_ips
 }
 
 output "outbound_endpoint_ips" {
-  description = "IPs do OUTBOUND endpoint. É deste IP de origem que a consulta chega ao dnsmasq — confira no journal do passo 4."
+  description = "IPs do OUTBOUND endpoint. É deste IP de origem que a consulta chega ao dnsmasq — confira no journal do passo 5."
   value       = local.outbound_ips
 }
 
 output "vpc_resolver_ips" {
-  description = "O `.2` de cada VPC (AmazonProvidedDNS). Grátis, sem ENI, e só responde de dentro da própria VPC — o passo 5 prova isso."
+  description = "O `.2` de cada VPC (AmazonProvidedDNS). Grátis, sem ENI, e só responde de dentro da própria VPC — o passo 6 prova isso."
   value = {
     aws    = local.aws_vpc_resolver_ip
     onprem = local.onprem_vpc_resolver_ip
@@ -41,7 +41,7 @@ output "instance_ips" {
 }
 
 output "resolver_rule_id" {
-  description = "ID da forwarding rule. Usado no passo 7 para desassociá-la da VPC e ver o NXDOMAIN aparecer."
+  description = "ID da forwarding rule. Usado no passo 8 para desassociá-la da VPC e ver o NXDOMAIN aparecer."
   value       = aws_route53_resolver_rule.onprem.id
 }
 
