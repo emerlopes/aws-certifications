@@ -607,6 +607,19 @@ eles estão fixos no código justamente para você poder conferir de cabeça.
   dig app.aws.corp.internal
   ```
 
+  **O que o comando quer dizer, em português:** *"DNS, qual é o endereço IP de
+  `app.aws.corp.internal`?"*
+
+  O `dig` é o telefone: ele liga para o servidor DNS da máquina, faz a pergunta e
+  imprime a resposta **inteira**, inclusive os bastidores — quem atendeu, quanto
+  tempo levou, se a resposta veio ou deu erro. É por isso que se usa `dig` aqui e
+  não `ping`: `ping` só diria "cheguei / não cheguei", e o que interessa neste lab
+  não é a conectividade, é **quem respondeu a pergunta e o que respondeu**.
+
+  Repare que você **não disse para quem ligar**. Sem `@` nenhum, o `dig` usa o
+  servidor que a própria máquina já tinha configurado — e é justamente isso que o
+  passo quer provar.
+
   **Saída esperada:**
 
   ```text
@@ -620,10 +633,23 @@ eles estão fixos no código justamente para você poder conferir de cabeça.
   ;; SERVER: 10.31.0.2#53(10.31.0.2) (UDP)
   ```
 
-  **Como ler:** três campos importam. `status: NOERROR` com `ANSWER: 1`, o IP
-  `10.31.64.40` e — o mais informativo — a linha `SERVER: 10.31.0.2`. Você não
-  configurou resolver nenhum nesta máquina: o `.2` já era o servidor dela desde
-  o boot, via DHCP da VPC.
+  **Como ler — a saída inteira em quatro frases.** Leia de baixo para cima, que é
+  a ordem em que a história acontece:
+
+  | O que aparece | O que significa, em português |
+  |---|---|
+  | `SERVER: 10.31.0.2` | **Quem atendeu o telefone.** Foi o resolver embutido da VPC — o segundo IP do bloco `10.31.0.0/16`. Você nunca configurou isso: veio pronto no boot, pelo DHCP da VPC. |
+  | `status: NOERROR` + `ANSWER: 1` | **A resposta veio, e veio com conteúdo.** `NOERROR` = "eu conheço esse nome"; `ANSWER: 1` = "e estou te mandando 1 endereço". Os dois juntos são o "deu certo". |
+  | `app.aws.corp.internal. 60 IN A 10.31.64.40` | **A resposta em si:** o nome perguntado vale o IP `10.31.64.40`. O `A` é o tipo do registro (nome que vira IPv4) e o `60` é o TTL: pode guardar em cache por 60 segundos antes de perguntar de novo. |
+  | `Query time: 1 msec` | **Levou 1 milissegundo.** Resposta local, sem sair da VPC. Guarde esse número: no passo 4, a mesma pergunta para o "datacenter" vai levar dezenas de vezes mais — e essa diferença é a fronteira sendo atravessada. |
+
+  Se `ANSWER` fosse `0`, a seção `ANSWER SECTION` simplesmente não apareceria: o
+  servidor teria respondido "não tenho esse nome" em vez de um IP.
+
+  A linha mais informativa das quatro é a do `SERVER`. Ela prova que a EC2 não
+  precisou de configuração nenhuma para achar um nome privado: ela perguntou para
+  o resolver padrão da VPC, e o resolver padrão já enxerga a private hosted zone
+  porque a zona está **associada** a esta VPC.
   **Se falhar** com `dig: command not found`: o `user_data` ainda não terminou;
   espere 2 min. Com `status: NXDOMAIN`: a zona não está associada a esta VPC —
   confira com `aws route53 get-hosted-zone --id Z04821931RQ8XKLM9NPQR`.
