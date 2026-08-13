@@ -168,15 +168,31 @@ resource "aws_instance" "nat" {
   vpc_security_group_ids = [aws_security_group.nat_instance[0].id]
   source_dest_check      = false
 
+  # O AL2023 NÃO traz o binário `iptables` — só o nftables. Sem instalar
+  # `iptables-services` o script morre em "iptables: command not found", a
+  # instância sobe 3/3 no console e mesmo assim nada sai da subnet privada:
+  # ip_forward encaminha o pacote, mas sem MASQUERADE a resposta não volta.
+  # O sintoma que chega no seu terminal é `TargetNotConnected` no SSM.
   user_data = <<-EOF
     #!/bin/bash
     set -euxo pipefail
+    for _ in $(seq 1 10); do
+      dnf install -y iptables-services && break
+      sleep 10
+    done
     sysctl -w net.ipv4.ip_forward=1
     echo "net.ipv4.ip_forward = 1" > /etc/sysctl.d/99-nat.conf
     IFACE=$(ip -o -4 route show to default | awk '{print $5}')
     iptables -t nat -A POSTROUTING -o "$IFACE" -s ${var.cidr_block} -j MASQUERADE
     iptables-save > /etc/sysconfig/iptables
+    # Restaura a regra no boot: sem isso um stop/start deixa a NAT muda de novo.
+    systemctl enable --now iptables
   EOF
+
+  # user_data_replace_on_change: mudar o script acima recria a instância em vez
+  # de só atualizar o atributo (que o cloud-init não reexecuta). Sem isso, um
+  # `apply` com o script corrigido não conserta nada.
+  user_data_replace_on_change = true
 
   tags = { Name = "${var.name}-nat-instance" }
 }
