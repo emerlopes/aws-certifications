@@ -241,10 +241,196 @@ Cada termo do diagrama, onde ele está no código e por que existe **neste** lab
 | **SG do outbound endpoint**    | `aws_security_group.resolver_outbound` ([main.tf:174](main.tf:174)) | Precisa de **egress** 53 UDP e TCP em direção ao servidor externo. A direção do SG segue a direção do endpoint; trocar os dois é o erro mais comum.                          |
 | **53 em TCP, além de UDP**     | os dois SGs acima                                    | DNS usa UDP por padrão e cai para TCP quando a resposta não cabe em 512 bytes (ou com DNSSEC). Liberar só UDP funciona no lab e falha em produção, de forma intermitente.                  |
 | **`dnsmasq`**                  | [`assets/dnsmasq-user-data.sh.tftpl`](assets/dnsmasq-user-data.sh.tftpl) | O "servidor DNS corporativo". Autoritativo de `onprem.corp.internal` (`local=`), com `log-queries` ligado — é o log que o passo 5 lê para provar quem perguntou.          |
-| **NAT instance**               | `nat_strategy = "instance"` ([main.tf:25](main.tf:25)) | ~US$ 3/mês por VPC. Existe só para as EC2 alcançarem o Systems Manager e instalarem `dnsmasq`/`bind-utils`. O trio de interface endpoints do SSM custaria US$ 1,44/dia.               |
+| **NAT instance**               | `nat_strategy = "instance"` ([main.tf:25](main.tf:25)) | ~US$ 3/mês por VPC. Existe só para as EC2 alcançarem o Systems Manager e instalarem `dnsmasq`/`bind-utils` — são **duas**, uma por VPC, porque NAT não atravessa peering. Detalhado em [As quatro EC2](#as-quatro-ec2-duas-são-o-lab-duas-são-encanamento). |
 | **Retry no `user_data`**       | [main.tf:352](main.tf:352) e no template do dnsmasq  | O Terraform espera a NAT instance ficar `running`, não o `user_data` **dela** terminar. Sem o laço de retry, o `dnf install` do outro lado corre antes do MASQUERADE existir e falha.       |
 | **Session Manager**            | `aws ssm start-session` — o passo 2 do roteiro       | Único acesso às duas EC2: sem IP público, sem porta 22, sem chave. Os comandos prontos saem do output `session_commands`. Ver o [lab 01](../lab-01-vpc-base/) para o mecanismo.             |
 | **IMDSv2 (`http_tokens`)**     | [main.tf:359](main.tf:359)                           | Token obrigatório no metadata service. Não tem relação com o tema do lab; é o padrão do repositório.                                                                                       |
+
+## As quatro EC2: duas são o lab, duas são encanamento
+
+Depois do apply o console mostra **quatro** instâncias, e o diagrama da
+Arquitetura mostra **duas**. Não é engano: as outras duas não aparecem lá porque
+não participam de nenhuma consulta DNS. Elas existem para que você consiga
+_entrar_ nas duas primeiras.
+
+| Instância                     | VPC      | É conteúdo ou encanamento?                                    | Custo         |
+| ----------------------------- | -------- | ------------------------------------------------------------- | ------------- |
+| `...-app`                     | `aws`    | **Conteúdo.** É o nome `app.aws.corp.internal` e é de onde saem as consultas dos passos 3, 4 e 9 | US$ 0,10/dia |
+| `...-onprem-dns`              | `onprem` | **Conteúdo.** Roda o `dnsmasq`: é o "servidor DNS corporativo" e também o `db.onprem.corp.internal` | US$ 0,10/dia |
+| `...-aws-nat-instance`        | `aws`    | **Encanamento.** Saída para a internet da subnet privada da VPC `aws` | ~US$ 0,10/dia |
+| `...-onprem-nat-instance`     | `onprem` | **Encanamento.** O mesmo, para a VPC `onprem`                   | ~US$ 0,10/dia |
+
+### As duas do conteúdo
+
+`app` e `onprem-dns` são os dois lados da fronteira que o lab estuda. A primeira
+é uma máquina deliberadamente burra: ela não tem configuração de DNS nenhuma, só
+o `.2` que o DHCP da VPC entregou — é essa ignorância que prova o ponto do lab,
+que DNS híbrido se resolve na plataforma e não no host. A segunda faz dois papéis
+ao mesmo tempo, servidor DNS autoritativo e "banco de dados", para que o nome
+resolvido no passo 4 também responda a `ping` e prove nome **e** alcance de uma
+vez só.
+
+Nenhuma das duas tem IP público, porta 22 aberta ou par de chaves. O acesso é
+todo por Session Manager — e é justamente isso que obriga as outras duas a
+existirem.
+
+### As duas NAT: por que uma instância só para alcançar o Systems Manager
+
+O Session Manager funciona ao contrário do SSH: **quem inicia a conexão é o
+agente de dentro da instância**, que abre uma sessão HTTPS de saída para três
+endpoints do Systems Manager (`ssm`, `ssmmessages`, `ec2messages`). Não existe
+porta de entrada — mas existe uma exigência de **saída**. Uma subnet privada, por
+definição, não tem rota para o Internet Gateway. Sem algo que faça essa
+tradução, o agente nunca se registra, e o `start-session` responde
+`TargetNotConnected`.
+
+Além do SSM, o `user_data` das duas instâncias precisa de saída para instalar
+pacotes: `bind-utils` (o `dig`) na `app` e o `dnsmasq` na `onprem-dns`. Nenhum
+dos dois vem na AMI do Amazon Linux 2023.
+
+```mermaid
+flowchart LR
+    subgraph VPC["VPC aws · 10.31.0.0/16 · o mesmo desenho se repete, inteiro, na VPC onprem"]
+        subgraph PRIV["subnet PRIVADA"]
+            APP["EC2 app · 10.31.64.40<br/>sem IP público · sem porta 22<br/>o agente SSM precisa SAIR na 443"]
+        end
+        subgraph PUB["subnet PÚBLICA"]
+            NAT["NAT instance · t4g.nano · US$ 3/mês<br/>tem IP público<br/>source_dest_check = false<br/>iptables MASQUERADE"]
+        end
+    end
+
+    IGW["Internet Gateway · US$ 0"]
+    SSM["Systems Manager<br/>ssm · ssmmessages · ec2messages"]
+    FALHA["SEM o pacote iptables instalado<br/>ip_forward encaminha, MASQUERADE não existe<br/>a resposta não sabe voltar<br/>sintoma: TargetNotConnected com 3/3 no console"]
+
+    APP -->|"1 · a rota 0.0.0.0/0 da subnet privada<br/>aponta para a ENI da NAT, não para o IGW"| NAT
+    NAT -->|"2 · MASQUERADE troca a origem<br/>10.31.64.40 pelo IP da NAT"| IGW
+    IGW -->|"3 · sessão HTTPS<br/>iniciada de dentro"| SSM
+    SSM -.->|"4 · a resposta volta pelo mesmo caminho<br/>quem sabe devolver a 10.31.64.40<br/>é a tabela do MASQUERADE"| NAT
+    NAT x--x FALHA
+
+    classDef gratis fill:#e8f5e9,stroke:#2e7d32,color:#1b5e20
+    classDef pago fill:#fff3e0,stroke:#ef6c00,color:#e65100
+    classDef ausente fill:#ffebee,stroke:#c62828,color:#b71c1c,stroke-dasharray:5 5
+    class IGW,SSM gratis
+    class APP,NAT pago
+    class FALHA ausente
+    linkStyle 4 stroke:#c62828,stroke-width:2px
+```
+
+**Como ler o desenho.** Três detalhes fazem uma NAT instance funcionar, e cada um
+deles quebra o caminho sozinho:
+
+1. **A rota (seta 1).** A route table da subnet privada manda `0.0.0.0/0` para a
+   **ENI** da NAT — não para o IGW, que ela não alcança. É a única seta que o
+   Terraform garante: as outras duas dependem do que roda dentro da instância.
+2. **`source_dest_check = false`.** Toda ENI descarta, por padrão, pacote cuja
+   origem ou destino não seja ela mesma. Encaminhar tráfego dos outros é
+   exatamente isso — então sem desligar essa checagem a NAT joga fora tudo que
+   deveria repassar. É o detalhe que quase toda questão de exame sobre NAT
+   instance esconde.
+3. **O MASQUERADE (seta 2).** `ip_forward` faz o pacote **sair**; o MASQUERADE é
+   o que troca a origem `10.31.64.40` pelo IP público da NAT e guarda numa tabela
+   para quem devolver a resposta (seta 4). Ligar só o primeiro é um erro que
+   parece funcionar: o pacote de ida sai de verdade, e nada volta.
+
+A caixa vermelha é essa terceira falha, e ela é real — o `user_data` do módulo já
+quebrou exatamente assim. Está documentada em detalhe [logo abaixo](#quando-a-nat-quebra-o-sintoma-aparece-no-session-manager).
+
+### Por que duas NAT, e não uma só
+
+Porque **NAT não atravessa peering**. Uma NAT instance vive numa subnet, a subnet
+pertence a uma VPC, e a route table que aponta para ela também. A VPC `onprem`
+não pode usar a NAT da VPC `aws` mesmo com o peering estabelecido: o peering
+carrega tráfego **entre** as duas VPCs, mas não entrega a saída para a internet
+de uma à outra.
+
+Essa regra tem nome e cai no exame: **peering não é transitivo**. Uma VPC nunca
+usa o Internet Gateway, o NAT Gateway nem o VPC endpoint da vizinha por peering.
+É a mesma limitação que faz o Transit Gateway existir — nele você _pode_
+centralizar a saída numa VPC de inspeção, e é por isso que "NAT centralizado" é
+resposta certa com Transit Gateway e resposta errada com peering. O
+[lab 02](../lab-02-transit-gateway/) é o outro lado dessa moeda.
+
+### Por que NAT instance, e não NAT Gateway nem VPC endpoints
+
+Três caminhos dão saída ao agente SSM. O lab escolhe o mais barato porque a saída
+não é o assunto aqui — os resolver endpoints já custam US$ 12,00/dia:
+
+| Opção                         | Custo nas duas VPCs | Por que não foi escolhida                                          |
+| ----------------------------- | ------------------- | ------------------------------------------------------------------ |
+| **NAT instance** (a escolha)  | ~US$ 0,20/dia       | —                                                                  |
+| **NAT Gateway**               | ~US$ 2,20/dia       | 10× mais caro para fazer a mesma coisa num lab efêmero              |
+| **Interface endpoints do SSM** | ~US$ 2,88/dia      | Trio de endpoints × 2 AZs × 2 VPCs. O mais caro dos três aqui       |
+
+**Cuidado ao levar essa escolha para o exame: em produção a ordem se inverte.** A
+NAT instance é um SPOF de uma AZ, gerenciado por você, com throughput limitado
+pelo tipo da instância — nenhuma dessas frases descreve uma resposta certa numa
+questão de produção. E quando o requisito é *"acesso administrativo sem nenhuma
+saída para a internet"*, a resposta é o trio de interface endpoints: ele é o
+único dos três que dispensa IGW por completo. Aqui a instância existe por ser
+barata, não por ser certa.
+
+### Quando a NAT quebra, o sintoma aparece no Session Manager
+
+Vale conhecer esse encadeamento, porque o erro aparece **longe** da causa. Uma
+NAT muda não dá erro nenhum: ela sobe, fica `running`, passa nas `3/3
+verificações` do console — que medem o hypervisor e o boot da instância, e nada
+sobre a rede que ela deveria encaminhar. Quem reclama é o `start-session`, três
+recursos adiante:
+
+```text
+An error occurred (TargetNotConnected) when calling the StartSession
+operation: i-0d27b4395eca665b6 is not connected.
+```
+
+Diagnostique **de trás para frente**, do sintoma para a causa:
+
+1. **A instância chegou a se registrar?** Se ela não aparece nesta lista, o
+   problema é a saída dela, não o Session Manager:
+
+   ```bash
+   aws ssm describe-instance-information \
+     --query 'InstanceInformationList[].[InstanceId,PingStatus]' \
+     --output table --region us-east-1
+   ```
+
+2. **O `user_data` da NAT terminou?** O console serial responde sem precisar
+   entrar na máquina — o que é bom, já que a NAT não tem agente SSM:
+
+   ```bash
+   aws ec2 get-console-output --instance-id ID-DA-NAT-INSTANCE \
+     --region us-east-1 --output text --query Output | grep -iE 'masquerade|cloud-final'
+   ```
+
+   Se a linha do `iptables ... MASQUERADE` vier seguida de erro, ou se aparecer
+   `Failed to start cloud-final`, o script morreu no meio e a NAT está muda.
+
+3. **A rota aponta para a NAT viva?** Ao recriar a NAT a ENI muda; uma rota
+   apontando para ENI antiga fica `blackhole`:
+
+   ```bash
+   aws ec2 describe-route-tables --region us-east-1 \
+     --filters "Name=association.subnet-id,Values=SUBNET-DA-INSTANCIA" \
+     --query 'RouteTables[].Routes[].[DestinationCidrBlock,NetworkInterfaceId,State]' \
+     --output table
+   ```
+
+> ⚠️ **Consertar o `user_data` de uma NAT já criada exige recriá-la.** O
+> cloud-init só executa o `user_data` no **primeiro** boot: `reboot` não
+> reexecuta, e alterar o script no `.tf` sem mais nada só atualiza o atributo no
+> state. Por isso o módulo declara `user_data_replace_on_change = true` — ele faz
+> o Terraform substituir a instância quando o script muda. As EC2 do lab que
+> subiram com a NAT quebrada também precisam nascer de novo (o `user_data`
+> **delas** falhou o `dnf install`), o que se pede explicitamente:
+>
+> ```bash
+> ./scripts/tf.sh apply certifications/sap-c02/labs/lab-03-dns-hibrido -- -replace=aws_instance.app -replace=aws_instance.onprem_dns
+> ```
+>
+> Isso recria só as quatro EC2 e preserva os resolver endpoints, que são a parte
+> lenta e cara do lab. Para depurar sem recriar, o cloud-init guarda o script em
+> `/var/lib/cloud/instance/scripts/part-001` e ele pode ser reexecutado à mão.
 
 ## Executar
 
