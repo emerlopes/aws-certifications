@@ -7,8 +7,8 @@
 | Produto avaliado           | IA.i (Inteligência Itaú) — app Itaú                   |
 | Domínio                    | Pós-compra de Financiamento de Veículos               |
 | Natureza do assistente     | Informativo — responde dúvidas, não executa operações |
-| Responsável pelo teste     | **\*\***\*\***\*\***\_\_**\*\***\*\***\*\***          |
-| Período de execução        | \_\_/\_\_/\_\_\_\_ a \_\_/\_\_/\_\_\_\_               |
+| Responsável pelo teste     | Emerson Lopes                                         |
+| Período de execução        | 13/08/2026 a \_\_/\_\_/\_\_\_\_ (em andamento)        |
 | Versão da KB de referência | **\*\***\*\***\*\***\_\_**\*\***\*\***\*\***          |
 | Liderança / stakeholders   | **\*\***\*\***\*\***\_\_**\*\***\*\***\*\***          |
 
@@ -83,7 +83,7 @@ Atualizar ao final de cada dia de execução.
 
 | Bloco                                                                                              | IDs                       |   Total | Executados | Aprovados | Ressalva | Reprovados | P0/P1 | Status |
 | -------------------------------------------------------------------------------------------------- | ------------------------- | ------: | ---------: | --------: | -------: | ---------: | ----: | ------ |
-| [01 · Pagamento e parcelas](cenarios/01-pagamento-e-parcelas.md)                                   | FIN-001–008               |      17 |            |           |          |            |       | ⬜     |
+| [01 · Pagamento e parcelas](cenarios/01-pagamento-e-parcelas.md)                                   | FIN-001–008               |      17 |         17 |        11 |        2 |          4 |     5 | 🟢     |
 | [02 · Antecipação e amortização](cenarios/02-antecipacao-e-amortizacao.md)                         | FIN-009–016               |      16 |            |           |          |            |       | ⬜     |
 | [03 · Contrato e informações financeiras](cenarios/03-contrato-e-informacoes.md)                   | FIN-017–024               |      16 |            |           |          |            |       | ⬜     |
 | [04 · Modalidade de pagamento](cenarios/04-modalidade-de-pagamento.md)                             | FIN-025–032               |      17 |            |           |          |            |       | ⬜     |
