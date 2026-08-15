@@ -336,6 +336,33 @@ economiza.
        passo 1 já entrega o que o passo de sessão manda copiar.
      - Diga no começo que os IDs das saídas de exemplo são fictícios e que o que
        importa é o formato.
+     - **Todo comando que contém um valor da conta (ARN, ID de recurso, nome de
+       bucket, endereço IP, external ID) vem precedido de uma linha dizendo DE QUAL
+       CHAVE DO OUTPUT aquele valor sai.** Um aviso genérico no topo do roteiro
+       ("os IDs são fictícios") não resolve: o leitor cansado copia o bloco que
+       está na frente dele, porque o bloco parece completo e executável. A forma:
+
+         > 📋 **Copie do output:** a linha `1_msp_caller` de `assume_commands`,
+         > inteira. O comando abaixo tem a conta fictícia — ele não vai funcionar.
+
+       Três regras que fazem esse ponteiro valer a pena:
+         * **Diga quando a cópia é PARCIAL.** Se o passo precisa do comando do
+           output menos um argumento (para falhar de propósito), escreva isso em
+           negrito e diga o que acontece se o leitor colar a linha inteira — que
+           é o passo passar quando devia falhar. Este é o caso que mais engana,
+           porque o output foi feito para o caminho feliz e o roteiro está
+           testando o infeliz.
+         * **Diga quando dois valores parecidos podem ser trocados** (`-bounded`
+           e `-unbounded`, `msp-caller` e `msp-caller-trust-only`) e o que o
+           resultado errado vai parecer. Quase todo lab tem um par de gêmeos, e
+           trocar os dois não dá erro — dá a conclusão oposta.
+         * **Diga quando o valor NÃO vem do passo 1**, mas da saída de um passo
+           anterior do próprio roteiro (um ARN que só existe depois de um
+           `list-*`). Sem isso o leitor procura no output uma chave que não está lá.
+     - No topo do roteiro, uma tabela **chave do output → passos que a usam**. Ela
+       fecha o circuito: o leitor abre o output uma vez, deixa numa aba ao lado e
+       sabe onde cada valor será cobrado. Se alguma chave do output não aparece em
+       nenhum passo, ou falta um passo, ou sobra um output.
 
      Veja o lab-01-vpc-base como referência de forma. -->
 
@@ -363,6 +390,25 @@ Duas coisas antes do primeiro comando:
    export AWS_PAGER=""
    ```
 
+### De onde vem cada valor
+
+> ⚠️ **Nenhum ARN, ID de recurso ou nome de bucket deste README funciona na sua
+> conta.** Todos carregam valores fictícios. Os reais saem do output do passo 1, e
+> **todo comando que precisa de um deles vem precedido de uma linha
+> `📋 Copie do output:`** dizendo qual chave usar. Leia essa linha antes de copiar
+> o comando.
+
+| Chave do output | O que é                      | Usada nos passos |
+| --------------- | ---------------------------- | ---------------- |
+| `alguma_chave`  | o que ela contém, em 5 palavras | 3, 5, 7       |
+| `outra_chave`   | ...                          | 4                |
+
+<!-- Preencha com as chaves reais do outputs.tf. Toda chave do output aparece em
+     pelo menos um passo — se sobrar chave, ou falta passo ou sobra output. -->
+
+Deixe o output do passo 1 aberto numa aba ao lado. Ele é a única fonte de valores
+deste roteiro.
+
 - [ ] **1. Pegar os valores que todo o resto usa**
 
   💻 **No seu laptop**, no diretório do repositório.
@@ -378,7 +424,8 @@ Duas coisas antes do primeiro comando:
   algum_output = "valor-de-exemplo"
   ```
 
-  **Como ler:** quais valores você vai reusar nos próximos passos.
+  **Como ler:** quais valores você vai reusar nos próximos passos, e em quais — a
+  tabela logo acima do passo 1 é o índice. **Copie deste output, nunca do README.**
   **Se falhar:** causa provável e correção.
 
 <!-- O passo abaixo é OBRIGATÓRIO em todo lab que tenha algum comando rodando
@@ -443,6 +490,9 @@ Duas coisas antes do primeiro comando:
   MARCADOR **onde exatamente.**
   **O que este passo faz:** uma ou duas frases simples, antes do comando.
 
+  > 📋 **Copie do output:** a chave `alguma_chave` do passo 1. O comando abaixo tem
+  > um valor fictício e não vai funcionar como está.
+
   ```bash
   comando exato com valores de exemplo
   ```
@@ -492,6 +542,16 @@ Duas coisas antes do primeiro comando:
   **4b. O que este subpasso prova**
 
   Este comando **precisa falhar** — é esse o ponto.
+
+  <!-- O ponteiro abaixo é o mais importante do roteiro e o único que ninguém
+       escreve. O output do Terraform é montado para o caminho FELIZ; um passo que
+       testa o caminho infeliz quase sempre pede uma versão AMPUTADA dele, e o
+       leitor que copia a linha inteira vê o passo passar quando devia falhar.
+       Apague se o lab não tiver nenhum passo assim — mas quase todo lab tem. -->
+
+  > 📋 **Copie do output, mas ampute:** pegue `alguma_chave` e **apague O-QUE-APAGAR**
+  > — é essa omissão que o passo testa. Se você colar o valor inteiro, o comando
+  > **passa** e o subpasso perde a graça.
 
   ```bash
   segundo comando

@@ -323,6 +323,27 @@ os seus vão ser diferentes. O que importa é o **formato** e o campo destacado 
 cada "Como ler". Tudo assume `us-east-1` e o prefixo de nome
 `sap-c02-lab-04-cross-account-iam`, que o `tf.sh` deriva de `certification` + `lab`.
 
+### De onde vem cada valor
+
+> ⚠️ **Nenhum ARN, nome de bucket ou external ID deste README funciona na sua conta.**
+> Todos eles carregam a conta fictícia `000011112222`. Os valores reais saem do
+> output do passo 1, e **todo comando do roteiro que precisa de um deles vem
+> precedido de uma linha `📋 Copie do output:`** dizendo exatamente qual chave usar.
+> Leia essa linha antes de copiar o comando — em um dos passos ela manda copiar a
+> linha do output **incompleta**, de propósito.
+
+| Chave do output       | O que é                                                    | Usada nos passos     |
+| --------------------- | ---------------------------------------------------------- | -------------------- |
+| `assume_commands`     | as seis linhas `assume ...` já prontas, com a sua conta     | 3, 4, 5, 7, 8, 9     |
+| `bucket`              | nome do bucket do lab, com o número da conta no fim         | 4, 6, 7              |
+| `external_id`         | o valor exigido pela trust policy da `audit-readonly`       | 4, 5, 6, 9           |
+| `role_arns`           | os ARNs soltos, para os comandos que não são `assume`       | 5, 6, 7, 8, 12       |
+| `boundary_policy_arn` | ARN da permission boundary, para recolocá-la no lugar       | 8                    |
+| `access_analyzer_name` | nome do analyzer criado pelo lab                           | 10                   |
+
+Deixe o output do passo 1 aberto numa aba ao lado. Ele é a única fonte de valores
+deste roteiro.
+
 ---
 
 - [ ] **1. Pegar os valores que todo o resto usa**
@@ -431,6 +452,9 @@ cada "Como ler". Tudo assume `us-east-1` e o prefixo de nome
 
   **3a. Dar o salto**
 
+  > 📋 **Copie do output:** a linha `1_msp_caller` de `assume_commands`, **inteira**.
+  > O comando abaixo é a mesma linha com a conta fictícia — ele não vai funcionar.
+
   ```bash
   assume arn:aws:iam::000011112222:role/sap-c02-lab-04-cross-account-iam-msp-caller msp
   ```
@@ -524,6 +548,12 @@ cada "Como ler". Tudo assume `us-east-1` e o prefixo de nome
 
   **4a. Sem o external ID — este comando precisa falhar**
 
+  > 📋 **Copie do output, mas ampute:** pegue a linha `3_audit_readonly` de
+  > `assume_commands` e **apague o último argumento** — o external ID, aquele
+  > `acme-msp-7f3c1b` no fim. É exatamente essa omissão que o passo quer testar.
+  > Se você colar a linha inteira, o comando **passa** e o 4a perde a graça.
+  > A linha certa termina em `... -audit-readonly auditoria`, e nada mais.
+
   ```bash
   assume arn:aws:iam::000011112222:role/sap-c02-lab-04-cross-account-iam-audit-readonly auditoria
   ```
@@ -550,7 +580,8 @@ cada "Como ler". Tudo assume `us-east-1` e o prefixo de nome
 
   **4b. Com o external ID — este precisa passar**
 
-  Use a linha `3_audit_readonly` do passo 1; o terceiro argumento é o external ID.
+  > 📋 **Copie do output:** agora sim a linha `3_audit_readonly` **inteira**, com o
+  > terceiro argumento. Ele é o valor da chave `external_id` do mesmo output.
 
   ```bash
   assume arn:aws:iam::000011112222:role/sap-c02-lab-04-cross-account-iam-audit-readonly auditoria acme-msp-7f3c1b
@@ -564,6 +595,10 @@ cada "Como ler". Tudo assume `us-east-1` e o prefixo de nome
   ```
 
   **4c. Confirmar a permissão que essa role realmente tem**
+
+  > 📋 **Copie do output:** a chave `bucket`. Ela já vem com o número da sua conta no
+  > fim — troque o `sap-c02-lab-04-cross-account-iam-000011112222` do comando abaixo
+  > por ele. O mesmo vale para todo `s3://` daqui em diante.
 
   ```bash
   aws s3 cp s3://sap-c02-lab-04-cross-account-iam-000011112222/hello.txt -
@@ -600,6 +635,9 @@ cada "Como ler". Tudo assume `us-east-1` e o prefixo de nome
 
   **5a. Voltar ao ponto de partida**
 
+  > 📋 **Copie do output:** a linha `1_msp_caller`, inteira, depois do `unassume &&`.
+  > Este par de comandos reaparece nos passos 7, 8 e 9 — é sempre a mesma linha.
+
   ```bash
   unassume && assume arn:aws:iam::000011112222:role/sap-c02-lab-04-cross-account-iam-msp-caller msp
   ```
@@ -621,6 +659,11 @@ cada "Como ler". Tudo assume `us-east-1` e o prefixo de nome
   Este comando é o `aws sts assume-role` cru, **não** a função `assume` — ele imprime
   o resultado e não troca a sua identidade. Você continua no `msp-caller` depois dele,
   dê certo ou errado.
+
+  > 📋 **Copie do output:** aqui não dá para reaproveitar a linha pronta, porque o
+  > comando não é o `assume`. Monte com duas chaves: `--role-arn` recebe
+  > `role_arns.audit_readonly` e `--external-id` recebe `external_id`. O
+  > `--role-session-name` é livre, escolha o que quiser.
 
   ```bash
   aws sts assume-role \
@@ -664,7 +707,14 @@ cada "Como ler". Tudo assume `us-east-1` e o prefixo de nome
 
   Aqui a função `assume` não serve, porque ela não sabe passar `--policy`. O bloco
   abaixo faz o mesmo trabalho na unha: chama o STS, recorta as três credenciais e as
-  exporta. Troque o nome do bucket nos **dois** lugares do JSON antes de colar.
+  exporta.
+
+  > 📋 **Copie do output — são três valores para trocar, confira os três antes de
+  > colar:** `--role-arn` recebe `role_arns.audit_readonly`; `--external-id` recebe
+  > `external_id`; e a chave `bucket` entra no `Resource` do primeiro statement do
+  > JSON do `--policy` (o do `s3:GetObject` — o segundo statement é `Resource: "*"`
+  > de propósito). Um bucket errado no JSON **não dá erro nenhum aqui**: ele só faz
+  > o teste 1 do 6b falhar, e aí você vai procurar o problema no lugar errado.
 
   ```bash
   eval "$(aws sts assume-role \
@@ -700,6 +750,10 @@ cada "Como ler". Tudo assume `us-east-1` e o prefixo de nome
 
   Um passa e dois falham. Os dois erros são **diferentes entre si**, e é essa
   diferença que vale o passo.
+
+  > 📋 **Copie do output:** a chave `bucket` nos dois primeiros comandos. Use o
+  > **mesmo** nome que você colocou no JSON do 6a — se os dois divergirem, o teste 1
+  > falha e o passo inteiro parece quebrado.
 
   **Teste 1 — o objeto que a session policy libera. Passa.**
 
@@ -754,8 +808,10 @@ cada "Como ler". Tudo assume `us-east-1` e o prefixo de nome
   policy**: a role não tem essa permissão, e session policy **não concede nada** — só
   corta.
   **Se falhar** o `eval` inteiro com erro de sintaxe: você provavelmente está num
-  shell que não é bash/zsh, ou o nome do bucket ficou errado no JSON. O JSON precisa
-  ter o nome real do bucket nos dois lugares.
+  shell que não é bash/zsh.
+  **Se o teste 1 falhar** com `AccessDenied` em vez de imprimir o arquivo: o nome do
+  bucket dentro do JSON do `--policy` não bate com o bucket real. Refaça o 6a com o
+  valor da chave `bucket` do output.
   **O que isso prova:** a permissão efetiva é uma **interseção**. Essa é a frase que
   responde metade das questões de política do SAP-C02, e ela vale igual para
   boundary, session policy e SCP.
@@ -774,6 +830,12 @@ cada "Como ler". Tudo assume `us-east-1` e o prefixo de nome
   Você está no `audit-readonly` desde o passo 6, então é a dança de sempre: `unassume`
   → `msp-caller` → alvo.
 
+  > 📋 **Copie do output:** linha `1_msp_caller` no primeiro comando, linha
+  > `5_delegated_admin_bounded` no segundo. Cuidado com o par
+  > `bounded`/`unbounded`: os nomes diferem por três letras e o lab inteiro depende
+  > de você entrar no certo. O session name no fim da linha (`bounded`) é o que vai
+  > te dizer, no ARN de resposta, qual dos dois você pegou.
+
   ```bash
   unassume && assume arn:aws:iam::000011112222:role/sap-c02-lab-04-cross-account-iam-msp-caller msp
   ```
@@ -791,6 +853,9 @@ cada "Como ler". Tudo assume `us-east-1` e o prefixo de nome
   **7b. Os três comandos, na role COM boundary**
 
   Rode um de cada vez, para não misturar as saídas. **Um passa, dois falham.**
+
+  > 📋 **Copie do output:** a chave `bucket` no primeiro comando. Os outros dois não
+  > têm nenhum valor da sua conta — são literais, copie como estão.
 
   ```bash
   aws s3 ls s3://sap-c02-lab-04-cross-account-iam-000011112222
@@ -827,6 +892,10 @@ cada "Como ler". Tudo assume `us-east-1` e o prefixo de nome
   ```
 
   **7c. Os mesmos três comandos, na role SEM boundary**
+
+  > 📋 **Copie do output:** linha `1_msp_caller`, depois linha
+  > `6_delegated_admin_unbounded` — **a 6, não a 5**. É a única diferença entre 7b e
+  > 7c, e é o experimento inteiro.
 
   ```bash
   unassume && assume arn:aws:iam::000011112222:role/sap-c02-lab-04-cross-account-iam-msp-caller msp
@@ -874,6 +943,11 @@ cada "Como ler". Tudo assume `us-east-1` e o prefixo de nome
   unassume
   ```
 
+  > 📋 **Copie do output:** o `--role-name` quer o **nome**, não o ARN. Ele é o
+  > pedaço final de `role_arns.delegated_admin_bounded`, depois do `role/`. Como o
+  > prefixo do lab não muda entre contas, o nome escrito abaixo já é o seu — é o
+  > único tipo de valor deste roteiro que dá para copiar do README sem conferir.
+
   ```bash
   aws iam get-role --role-name sap-c02-lab-04-cross-account-iam-delegated-admin-bounded \
     --query 'Role.PermissionsBoundary' --output json
@@ -910,6 +984,11 @@ cada "Como ler". Tudo assume `us-east-1` e o prefixo de nome
   unassume
   ```
 
+  > 📋 **Confira o nome antes de rodar:** `--role-name` termina em **`-bounded`**.
+  > O nome não muda entre contas (é o prefixo do lab), mas é o mesmo par
+  > `bounded`/`unbounded` do passo 7 — e este comando **apaga** configuração. Na
+  > dúvida, confira contra o fim de `role_arns.delegated_admin_bounded` no output.
+
   ```bash
   aws iam delete-role-permissions-boundary \
     --role-name sap-c02-lab-04-cross-account-iam-delegated-admin-bounded
@@ -919,6 +998,10 @@ cada "Como ler". Tudo assume `us-east-1` e o prefixo de nome
   quando dão certo. Silêncio é sucesso.
 
   **8b. Repetir os dois comandos que antes falhavam**
+
+  > 📋 **Copie do output:** linha `1_msp_caller`, depois linha
+  > `5_delegated_admin_bounded` — a **mesma** role do 7b, agora sem boundary. Se você
+  > pegar a 6 aqui por engano, o resultado vai ser idêntico e o passo não prova nada.
 
   ```bash
   assume arn:aws:iam::000011112222:role/sap-c02-lab-04-cross-account-iam-msp-caller msp
@@ -950,6 +1033,10 @@ cada "Como ler". Tudo assume `us-east-1` e o prefixo de nome
   ```bash
   unassume
   ```
+
+  > 📋 **Copie do output:** `--permissions-boundary` recebe a chave
+  > `boundary_policy_arn`, e este **é** um ARN com o número da sua conta — o do
+  > comando abaixo não funciona. É a única vez no roteiro que essa chave aparece.
 
   ```bash
   aws iam put-role-permissions-boundary \
@@ -997,6 +1084,10 @@ cada "Como ler". Tudo assume `us-east-1` e o prefixo de nome
 
   **9a. Entrar no chamador sem identity policy**
 
+  > 📋 **Copie do output:** linha `2_msp_caller_trust_only` — **a 2, não a 1**. As
+  > duas começam igual (`...-msp-caller`) e só divergem no sufixo `-trust-only`.
+  > Pegar a 1 aqui inverte o resultado dos dois subpassos seguintes.
+
   ```bash
   unassume && assume arn:aws:iam::000011112222:role/sap-c02-lab-04-cross-account-iam-msp-caller-trust-only trustonly
   ```
@@ -1012,6 +1103,12 @@ cada "Como ler". Tudo assume `us-east-1` e o prefixo de nome
   ```
 
   **9b. A role cuja trust policy nomeia a CONTA — precisa falhar**
+
+  > 📋 **Copie do output:** a linha `3_audit_readonly` **inteira**, external ID e
+  > tudo — ao contrário do 4a, aqui você quer que a condição seja satisfeita, para
+  > provar que a falha vem de outro lugar. Só o session name muda: troquei
+  > `auditoria` por `tentativa` para separar as duas no CloudTrail do passo 11. Esse
+  > argumento é livre, use o que quiser.
 
   ```bash
   assume arn:aws:iam::000011112222:role/sap-c02-lab-04-cross-account-iam-audit-readonly tentativa acme-msp-7f3c1b
@@ -1029,6 +1126,9 @@ cada "Como ler". Tudo assume `us-east-1` e o prefixo de nome
   **9c. A role cuja trust policy nomeia o ARN EXATO deste chamador — precisa passar**
 
   Sem external ID desta vez: a trust policy desta role não exige nenhum.
+
+  > 📋 **Copie do output:** a linha `4_audit_direct_trust`, inteira. Ela já vem sem
+  > external ID — não é omissão do README, é que esta role não pede nenhum.
 
   ```bash
   assume arn:aws:iam::000011112222:role/sap-c02-lab-04-cross-account-iam-audit-direct-trust direto
@@ -1096,6 +1196,11 @@ cada "Como ler". Tudo assume `us-east-1` e o prefixo de nome
   analyzer `ACCOUNT` da lista serve para o 10b.
 
   **10b. Ler os findings — e o vazio é a resposta**
+
+  > 📋 **Copie da saída do 10a, não do passo 1:** o `--analyzer-arn` quer o ARN que o
+  > comando anterior acabou de imprimir. A chave `access_analyzer_name` do output do
+  > passo 1 traz só o **nome** do analyzer — serve para você confirmar que achou o
+  > certo na lista do 10a, não para colar aqui.
 
   ```bash
   aws accessanalyzer list-findings \
@@ -1206,7 +1311,8 @@ cada "Como ler". Tudo assume `us-east-1` e o prefixo de nome
 - [ ] **12. Conferir a conta**
 
   Antes de fechar o terminal, dois fechamentos de 💻 admin — o segundo é o que
-  importa:
+  importa. O `--role-name` é o mesmo do passo 8, o nome no fim de
+  `role_arns.delegated_admin_bounded`.
 
   ```bash
   unassume
@@ -1385,7 +1491,9 @@ da outra conta em `data.aws_iam_policy_document.trust_with_external_id`
 zero e mostra um finding ativo apontando a conta externa — que é o comportamento que
 importa na vida real.
 
-**Sem segunda conta**, três variações rendem bastante e custam nada:
+**Sem segunda conta**, três variações rendem bastante e custam nada. Valem as mesmas
+regras do roteiro: 💻 admin, e todo ARN sai do output do passo 1 — aqui, a chave
+`role_arns`.
 
 ```bash
 # 1. Trocar o teto da boundary e ver a interseção mudar de lugar.
