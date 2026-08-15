@@ -11,7 +11,7 @@
 
 > **Domínio** X.Y — Nome da task statement
 > **Custo estimado** US$ X,XX/dia se ficar de pé · **Tempo** ~XX min
-> **Pré-requisitos** guardrails aplicados · <outras dependências: outro lab, plugin, 2ª conta>
+> **Pré-requisitos** guardrails aplicados · OUTRAS-DEPENDÊNCIAS (outro lab, plugin, 2ª conta)
 
 ## Por que este lab existe
 
@@ -45,12 +45,12 @@
      "Empresas usam para segurança" não serve. Descreva um cenário com nome,
      números e a restrição que força a decisão:
 
-     - **Cenário**: <tipo de empresa/sistema, escala, restrição — regulatória,
-       de custo, de latência, de janela de manutenção...>
-     - **Sem isto**: <o que a equipe faria e por que dói — custo, risco, toil>
-     - **Com isto**: <o que muda concretamente>
-     - **Quem faz assim**: <padrão publicado, AWS Well-Architected, whitepaper,
-       arquitetura de referência ou caso público — cite a fonte quando houver>
+     - **Cenário**: tipo de empresa/sistema, escala, restrição — regulatória,
+       de custo, de latência, de janela de manutenção...
+     - **Sem isto**: o que a equipe faria e por que dói — custo, risco, toil
+     - **Com isto**: o que muda concretamente
+     - **Quem faz assim**: padrão publicado, AWS Well-Architected, whitepaper,
+       arquitetura de referência ou caso público — cite a fonte quando houver
 
      Se você não consegue nomear um cenário real, o lab provavelmente está
      ensinando um serviço em vez de uma decisão. Reveja o recorte. -->
@@ -246,28 +246,67 @@ economiza.
        1. **Título em ação**, dizendo o que se ganha — "Provar que não existe rota
           para a internet", não "Route tables".
        2. **Marcador de contexto** + onde exatamente (qual terminal, qual conta,
-          qual diretório).
+          qual diretório). Quando o passo depende de um contexto que um passo
+          ANTERIOR deixou montado (uma sessão aberta, uma role assumida, um
+          diretório), abra com o comando que CONFIRMA isso e a resposta esperada
+          dele. "Você já está no X" é uma suposição; `hostname` é um fato.
        3. **O que este passo faz**, em uma ou duas frases de português simples,
           ANTES do comando. Explique também as flags que não são óbvias (por que
           `-m 5`, por que o `-` no fim do `aws s3 cp`). Se o comando vai parecer
           travado, ou demorar, avise aqui — silêncio inesperado parece erro.
-       4. **O comando exato**, copiável, com valores de exemplo no lugar de
+       4. **Um passo, um ato.** Se o passo tem mais de um ato — entrar em algum
+          lugar e depois testar, ou rodar três comandos que provam coisas
+          diferentes — quebre em subpassos rotulados (**3a**, **3b**, **3c**),
+          cada um com seu comando E sua saída esperada. Nunca empilhe vários
+          comandos num bloco só esperando que o leitor separe as saídas: ele não
+          separa, e quando uma delas é erro ele acha que quebrou tudo. Diga
+          também, na abertura, o placar do passo: "são três comandos, um passa e
+          dois falham".
+       5. **O comando exato**, copiável, com valores de exemplo no lugar de
           placeholders (`i-05e3f0c9c4a2b7d18`, não uma variável a preencher).
-       5. **Saída esperada**, num bloco ```text — a saída LITERAL, não a
+       6. **Saída esperada**, num bloco ```text — a saída LITERAL, não a
           descrição dela. Este é o item que mais falta e o que mais salva.
-       6. **Como ler:** aponte o CAMPO que importa ("os campos 4 e 5 são origem e
+          Três casos que TODO roteiro erra e que precisam ser ditos com todas as
+          letras:
+            * **Quando a saída esperada é um erro**, escreva isso na etiqueta:
+              "**Saída esperada** — um **erro**, e é ele o conteúdo do passo".
+              Bloco de erro sem etiqueta faz o leitor parar e ir depurar o que
+              está funcionando.
+            * **Quando o comando não imprime nada** (`iam:Put*`, `export`,
+              `eval`), diga "**Saída esperada: nenhuma** — silêncio é sucesso",
+              e dê em seguida o comando que CONFIRMA o efeito invisível.
+            * **Quando uma resposta vazia é sucesso** (`{"Reservations": []}`,
+              tabela só com cabeçalho), diga que vazio ≠ falha, e por quê.
+       7. **Como ler:** aponte o CAMPO que importa ("os campos 4 e 5 são origem e
           destino"), e diga quando o que importa é uma AUSÊNCIA ("você está
           procurando a linha que não existe").
-       7. **Se falhar:** os dois ou três erros que realmente acontecem, com a
+       8. **Se falhar:** os dois ou três erros que realmente acontecem, com a
           mensagem literal e a correção. Separe "ainda não ficou pronto" de
           "está errado" — esperar 2 min e reconfigurar são coisas diferentes.
-       8. **O que isso prova:** uma frase, ligando ao conceito do exame.
+          Inclua o **diagnóstico invertido**, que é o que falta na maioria dos
+          roteiros: "se der certo quando devia falhar, você está no contexto
+          errado — refaça o passo N". Passo cuja graça é falhar precisa dizer o
+          que significa ele ter passado.
+       9. **O que isso prova:** uma frase, ligando ao conceito do exame.
 
      ### Ainda obrigatório
 
      - Pelo menos um passo de FALHA CONTROLADA: quebre de propósito, veja o erro
        exato, conserte. Ver funcionar ensina metade; ver quebrar do jeito certo
        ensina a outra metade — e é o que a questão descreve.
+     - **Todo passo que altera infraestrutura fora do Terraform** (a falha
+       controlada, quase sempre) tem três atos explícitos: quebrar, observar,
+       REVERTER. E o ato de reverter termina com o comando que verifica que a
+       reversão pegou, mais uma linha do tipo "se você fechou o terminal no meio,
+       rode isto para descobrir em que estado ficou". Sem isso o leitor abandona
+       o lab com o state divergente e descobre no `plan` do mês seguinte.
+     - **O pager do AWS CLI v2.** A v2 manda a saída para o `less`, então
+       qualquer comando pode terminar numa tela com `(END)` no rodapé e o
+       terminal aparentemente travado — é o motivo nº 1 de "o lab travou" que não
+       tem nada a ver com o lab. Se o roteiro tem comandos de leitura (e todos
+       têm), o bloco de preparação manda `export AWS_PAGER=""` e o texto explica
+       que `q` sai do visualizador sem desfazer nada. Comandos com
+       `--output table` são os que mais caem nisso — vale um lembrete local.
      - O primeiro passo pega os outputs do Terraform, porque todo o resto usa:
        ./scripts/tf.sh output certifications/sap-c02/labs/lab-NN-slug
      - **Se qualquer passo do roteiro roda DENTRO de uma instância, o passo logo
@@ -311,7 +350,18 @@ economiza.
 <!-- Ajuste a tabela ao lab. Se só existe UM contexto, diga isso numa frase e
      apague a tabela — mas diga, não deixe implícito. -->
 
-As saídas abaixo são exemplos com IDs fictícios; o que importa é o formato.
+Duas coisas antes do primeiro comando:
+
+1. **As saídas abaixo são exemplos com IDs fictícios**; o que importa é o formato e
+   o campo destacado em cada "Como ler".
+2. **Desligue o pager do AWS CLI**, colando a linha abaixo neste terminal. Sem ela, a
+   v2 do CLI manda a saída para o `less` e o terminal parece travado, com `(END)` no
+   rodapé e sem aceitar o próximo comando. Se cair nisso, `q` sai do visualizador e
+   **não desfaz nada** do que você já fez.
+
+   ```bash
+   export AWS_PAGER=""
+   ```
 
 - [ ] **1. Pegar os valores que todo o resto usa**
 
@@ -407,27 +457,107 @@ As saídas abaixo são exemplos com IDs fictícios; o que importa é o formato.
   **Se falhar:** mensagem literal do erro e a correção.
   **O que isso prova:** a frase que você quer lembrar na hora da questão.
 
-- [ ] **4. Quebrar de propósito: O-QUE-DESLIGAR**
+<!-- Passo com mais de um ato: use ESTA forma, não um bloco com vários comandos.
+     Cada subpasso tem comando + saída esperada própria, e a abertura diz o placar
+     (quantos passam, quantos falham). Apague se o lab não tiver passo assim. -->
+
+- [ ] **4. TÍTULO EM AÇÃO (passo com mais de um ato)**
+
+  MARCADOR **onde exatamente.** Se este passo depende do contexto que o passo
+  anterior montou, confirme antes de começar:
+
+  ```bash
+  comando que confirma o contexto
+  ```
+
+  Tem que responder RESPOSTA-ESPERADA. Se responder outra coisa, refaça o passo N.
+
+  **O que este passo faz:** uma ou duas frases. **São dois comandos: o primeiro
+  ENTRA em algum lugar, o segundo MEDE o que dá para fazer de lá — e a saída
+  esperada do segundo é um erro.**
+
+  **4a. O que este subpasso ganha**
+
+  ```bash
+  primeiro comando
+  ```
+
+  **Saída esperada** — descreva o que é antes do bloco (uma linha só, um JSON, uma
+  tabela vazia, nada):
+
+  ```text
+  a saída literal
+  ```
+
+  **4b. O que este subpasso prova**
+
+  Este comando **precisa falhar** — é esse o ponto.
+
+  ```bash
+  segundo comando
+  ```
+
+  **Saída esperada** — um **erro**:
+
+  ```text
+  a mensagem de erro literal
+  ```
+
+  **Como ler:** por que ele falhou, e o que o erro diz que a mensagem genérica não
+  diria.
+  **Se der certo quando devia falhar:** você está no contexto errado — refaça o
+  passo N. (Diagnóstico invertido: sem esta linha, o leitor comemora o resultado
+  errado.)
+  **O que isso prova:** a frase que você quer lembrar na hora da questão.
+
+- [ ] **5. Quebrar de propósito: O-QUE-DESLIGAR**
 
   MARCADOR **onde.**
   **O que este passo faz:** o que você desliga e, principalmente, o que você NÃO
-  toca — é isso que isola a causa.
+  toca — é isso que isola a causa. **Este passo altera infraestrutura de verdade;
+  o ato de reverter, no 5c, não é opcional.**
+
+  **5a. Quebrar**
 
   ```bash
   comando que quebra
   ```
 
   **Saída esperada:** o erro exato, com a mensagem, e quanto tempo demora até
-  aparecer.
-  **Reverter:**
+  aparecer. (Se o comando não imprime nada quando dá certo, diga isso aqui:
+  "**Saída esperada: nenhuma** — silêncio é sucesso".)
+
+  **5b. Observar**
+
+  ```bash
+  comando que mostra o efeito
+  ```
+
+  **Saída esperada:** o que mudou em relação ao passo anterior, e o que
+  explicitamente NÃO mudou.
+
+  **5c. Reverter — faça agora, não depois**
 
   ```bash
   comando que conserta
   ```
 
+  Confirme que a reversão pegou:
+
+  ```bash
+  comando que verifica
+  ```
+
+  **Saída esperada:** o estado original de volta.
+  **Se você fechou o terminal no meio do passo:** rode o comando de verificação
+  acima para descobrir em que estado ficou; em último caso, `./scripts/tf.sh plan`
+  acusa a diferença.
   **O que isso prova:** por que essa dependência existe.
 
-- [ ] **5. Conferir a conta**
+- [ ] **6. Conferir a conta**
+
+  <!-- Se o roteiro tem passo de falha controlada, feche o lab confirmando a
+       reversão ANTES do custo — é a última chance de pegar um state divergente. -->
 
   🌐 **No navegador**, D+1. Console → Billing and Cost Management → Cost Explorer
   → filtro Tag → chave `Lab` → valor `lab-NN-slug`.
@@ -451,17 +581,17 @@ As saídas abaixo são exemplos com IDs fictícios; o que importa é o formato.
      este lab, ou falta uma observação no roteiro. Nos dois casos, conserte agora —
      é exatamente esse elo que faz o lab virar memória de longo prazo. -->
 
-### 1. <Pergunta em formato de cenário>
+### 1. PERGUNTA EM FORMATO DE CENÁRIO
 
-**Resposta:** <...>
-**Por quê:** <...> Os distratores A e B falham porque <...>.
-**Onde o lab prova:** item N do roteiro — <o que você observou>.
+**Resposta:** ...
+**Por quê:** ... Os distratores A e B falham porque ...
+**Onde o lab prova:** item N do roteiro — O-QUE-VOCÊ-OBSERVOU.
 
-### 2. <Pergunta em formato de cenário>
+### 2. PERGUNTA EM FORMATO DE CENÁRIO
 
-**Resposta:** <...>
-**Por quê:** <...>
-**Onde o lab prova:** item N do roteiro — <o que você observou>.
+**Resposta:** ...
+**Por quê:** ...
+**Onde o lab prova:** item N do roteiro — O-QUE-VOCÊ-OBSERVOU.
 
 ## Variações que valem tentar
 

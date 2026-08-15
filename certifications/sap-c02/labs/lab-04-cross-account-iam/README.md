@@ -304,7 +304,7 @@ jeito de se perder aqui.
 | 🎭 **Sessão assumida**   | O **mesmo** terminal, com `AWS_SESSION_TOKEN` setado | O mesmo comando traz `arn:aws:sts::...:assumed-role/sap-c02-lab-04-.../SESSAO`            |
 | 🌐 **No navegador**      | Console da AWS                                      | —                                                                                        |
 
-Três coisas que evitam dor de cabeça:
+Quatro coisas que evitam dor de cabeça:
 
 1. **Um terminal só, e sempre confira quem você é** antes de um comando importante.
    O prompt **não muda** quando você assume uma role — diferente dos labs 01 a 03,
@@ -314,6 +314,9 @@ Três coisas que evitam dor de cabeça:
    padrão é sempre `unassume` → `assume msp-caller` → `assume o alvo`.
 3. **As credenciais expiram em 1 hora.** Se um comando que funcionava começar a
    dar `ExpiredToken`, não é o lab quebrando: refaça os dois saltos.
+4. **Se o terminal parecer travado com `(END)` no rodapé, ele não travou.** É o
+   pager (`less`) do AWS CLI v2 exibindo a saída. `q` sai — e não desfaz nenhum
+   salto. O `export AWS_PAGER=""` do passo 2 evita isso o lab inteiro.
 
 As saídas abaixo são exemplos com **IDs e números de conta fictícios** (`000011112222`);
 os seus vão ser diferentes. O que importa é o **formato** e o campo destacado em
@@ -383,7 +386,16 @@ cada "Como ler". Tudo assume `us-east-1` e o prefixo de nome
     unset AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN
     aws sts get-caller-identity --query Arn --output text
   }
+
+  export AWS_PAGER=""
   ```
+
+  **Não pule a última linha.** O AWS CLI v2 manda a saída para um pager (`less`) por
+  padrão. Sem `AWS_PAGER=""`, o resultado de vários passos abaixo aparece dentro do
+  `less`, com `(END)` no rodapé e o terminal aparentemente travado — e você não
+  consegue digitar o comando seguinte enquanto não sair. Se cair nisso, aperte `q`:
+  isso fecha só o visualizador e **não desfaz nada** (a sessão assumida vive em
+  variável de ambiente, não em um processo).
 
   Confirme que você está no admin antes de começar:
 
@@ -406,56 +418,118 @@ cada "Como ler". Tudo assume `us-east-1` e o prefixo de nome
 
 - [ ] **3. Primeiro salto: virar o parceiro**
 
-  💻 **Admin** → 🎭 **sessão assumida.** Use a linha `1_msp_caller` do passo 1.
-  **O que este passo faz:** troca a sua identidade de admin por um token de 1 hora
-  da role `msp-caller`. A partir daqui, todo comando neste terminal é executado
-  **como o parceiro**, com as permissões dele — que são pouquíssimas.
+  💻 **Admin** → 🎭 **sessão assumida.** Use a linha `1_msp_caller` do passo 1 — a
+  do **seu** output, com o número da sua conta, não o `000011112222` do exemplo.
+  **O que este passo faz:** troca a sua identidade de admin por um token de 1 hora da
+  role `msp-caller`. A troca acontece **só nesta aba do terminal** e **só em variáveis
+  de ambiente**: nada muda no `~/.aws/config`, no console do navegador ou em outra
+  aba. A partir daqui, todo comando desta aba é executado **como o parceiro**, com as
+  permissões dele — que são pouquíssimas.
+
+  São dois comandos: o primeiro dá o salto, o segundo mede o tamanho da caixa em que
+  você caiu. **Os dois têm saída esperada, e a do segundo é um erro.**
+
+  **3a. Dar o salto**
 
   ```bash
   assume arn:aws:iam::000011112222:role/sap-c02-lab-04-cross-account-iam-msp-caller msp
   ```
 
-  **Saída esperada:**
+  O comando tem três pedaços: `assume` (a função que você colou no passo 2), o **ARN
+  da role** e `msp`, o **session name** — um rótulo livre, escolhido por você, que não
+  precisa existir em lugar nenhum antes.
+
+  **Saída esperada** — uma linha só. Ela é o `aws sts get-caller-identity` que a
+  função roda no fim, ou seja: é a AWS respondendo quem você virou.
 
   ```text
   arn:aws:sts::000011112222:assumed-role/sap-c02-lab-04-cross-account-iam-msp-caller/msp
   ```
 
-  **Como ler:** três coisas mudaram no ARN e as três importam. O serviço virou
-  **`sts`** (não `iam`): isto é uma **sessão**, não uma identidade permanente. O
-  caminho virou **`assumed-role/`**. E no fim apareceu **`/msp`**, o session name que
-  você passou — é esse texto que vai identificar a chamada no CloudTrail do passo 11,
-  e é por isso que em produção se coloca ali o ticket ou o e-mail de quem pediu.
-  Confirme que a permissão realmente encolheu:
+  **Como ler:** compare com o ARN que o `unassume` do passo 2 imprimiu. Três pedaços
+  mudaram, e os três importam:
+
+  | Pedaço do ARN     | Antes (💻 admin)                | Agora (🎭 sessão)                            | Por que importa                                                                          |
+  | ----------------- | ------------------------------ | ------------------------------------------- | ---------------------------------------------------------------------------------------- |
+  | serviço           | `sts` do seu SSO, ou `iam`     | `sts`                                       | é uma **sessão temporária**, não uma identidade permanente — expira em 1 h sozinha        |
+  | caminho           | seu usuário ou role de SSO     | `assumed-role/...-msp-caller`               | quem está agindo agora é a **role do parceiro**, não você                                 |
+  | final             | seu nome de login              | `/msp`                                      | é o session name; é ele que identifica a chamada no CloudTrail do passo 11                |
+
+  O session name é o motivo de, em produção, se colocar ali o número do ticket ou o
+  e-mail de quem pediu o acesso: no log, é a única pista de **qual pessoa** usou a
+  role compartilhada.
+
+  **3b. Confirmar que a permissão encolheu**
+
+  Este comando **precisa falhar** — é esse o ponto do passo. Você não está testando se
+  o `assume` funcionou (o ARN do 3a já provou que sim), está medindo o que sobrou de
+  poder depois do salto.
 
   ```bash
   aws s3 ls
   ```
 
+  **Saída esperada** — um **erro**, e nenhuma linha de bucket antes dele:
+
   ```text
   An error occurred (AccessDenied) when calling the ListBuckets operation: Access Denied
   ```
 
-  **Se falhar** o `assume` com `AccessDenied`: espere ~15 s (propagação de IAM) e
+  **Como ler:** como admin, esse mesmo comando lista todos os buckets da conta,
+  inclusive o `bucket` do passo 1. Como `msp-caller`, ele não lista nenhum, porque a
+  identity policy do parceiro ([main.tf:78](main.tf:78)) tem **uma única ação** —
+  `sts:AssumeRole` — e mais nada. Se você **viu a lista de buckets**, o salto não
+  pegou: você ainda é admin, volte ao 3a.
+
+  **Se o terminal parecer travado**, com `(END)` (ou dois-pontos) no rodapé e nada
+  acontecendo quando você digita: não travou. É o pager do AWS CLI v2 (`less`)
+  segurando a saída. Aperte **`q`** para sair dele — `q` fecha só o visualizador e a
+  sessão assumida continua de pé; quem desfaz o salto é `unassume`, e `exit` fecha o
+  terminal inteiro. Depois de sair, rode a linha `export AWS_PAGER=""` do passo 2 para
+  não cair nisso de novo.
+
+  **Se o `assume` falhar** com `AccessDenied`: espere ~15 s (propagação de IAM) e
   repita. Se persistir, confirme que o `unassume` do passo 2 rodou — você pode estar
   tentando assumir a partir de uma sessão que não tem `sts:AssumeRole`.
+  **Se aparecer `ExpiredToken`:** seu login de admin caiu. `aws sso login` e repita.
+  **Em qualquer dúvida sobre quem você é**, a qualquer momento:
+
+  ```bash
+  aws sts get-caller-identity --query Arn --output text
+  ```
+
+  Abrir uma aba nova de terminal te devolve ao 💻 admin, porque as variáveis de
+  ambiente não são herdadas — se isso acontecer, refaça o 3a nela.
+
   **O que isso prova:** o parceiro entrou na sua conta sem nenhuma credencial
   permanente ter sido criada, trocada por e-mail ou guardada em lugar nenhum. E ele
-  não consegue fazer **nada** além de assumir os três papéis do lado B — a identity
-  policy dele ([main.tf:78](main.tf:78)) tem uma única ação.
+  não consegue fazer **nada** além de assumir os três papéis do lado B.
 
 - [ ] **4. O external ID: a condição que mora na porta, não na permissão**
 
-  🎭 **Sessão do `msp-caller`.** Primeiro **sem** o external ID, de propósito.
-  **O que este passo faz:** tenta o segundo salto omitindo o argumento. Nada de
-  errado com as permissões — o que falta é satisfazer uma **condição da trust
+  🎭 **Sessão do `msp-caller`** — a que você abriu no passo 3. Confira antes de
+  começar, porque o passo inteiro só faz sentido a partir dela:
+
+  ```bash
+  aws sts get-caller-identity --query Arn --output text
+  ```
+
+  Tem que terminar em `.../sap-c02-lab-04-cross-account-iam-msp-caller/msp`. Se
+  terminar em outra coisa, refaça o passo 3.
+
+  **O que este passo faz:** dá o **segundo** salto duas vezes — primeiro **sem** o
+  external ID, de propósito, para falhar; depois **com** ele. Entre as duas tentativas
+  nada muda nas permissões: o que muda é satisfazer, ou não, uma **condição da trust
   policy**.
+
+  **4a. Sem o external ID — este comando precisa falhar**
 
   ```bash
   assume arn:aws:iam::000011112222:role/sap-c02-lab-04-cross-account-iam-audit-readonly auditoria
   ```
 
-  **Saída esperada:**
+  **Saída esperada** — um **erro**, e repare que quem falhou foi o próprio
+  `AssumeRole`, não algum comando depois dele:
 
   ```text
   An error occurred (AccessDenied) when calling the AssumeRole operation: User:
@@ -470,29 +544,47 @@ cada "Como ler". Tudo assume `us-east-1` e o prefixo de nome
   isso vale uma questão inteira, porque no cenário real o sintoma é "o fornecedor diz
   que configuramos tudo certo e mesmo assim dá negado".
 
-  Agora **com** o external ID (a linha `3_audit_readonly` do passo 1):
+  **Você continua no `msp-caller`.** Quando o `aws sts assume-role` falha, a função
+  `assume` para antes de exportar qualquer variável — a sessão anterior fica intacta.
+  Não precisa refazer nada antes do 4b.
+
+  **4b. Com o external ID — este precisa passar**
+
+  Use a linha `3_audit_readonly` do passo 1; o terceiro argumento é o external ID.
 
   ```bash
   assume arn:aws:iam::000011112222:role/sap-c02-lab-04-cross-account-iam-audit-readonly auditoria acme-msp-7f3c1b
   ```
 
+  **Saída esperada** — o ARN da nova sessão, agora com `audit-readonly` no caminho e
+  `/auditoria` no fim:
+
   ```text
   arn:aws:sts::000011112222:assumed-role/sap-c02-lab-04-cross-account-iam-audit-readonly/auditoria
   ```
 
-  Confirme que você tem exatamente a permissão prevista:
+  **4c. Confirmar a permissão que essa role realmente tem**
 
   ```bash
   aws s3 cp s3://sap-c02-lab-04-cross-account-iam-000011112222/hello.txt -
   ```
 
+  **Saída esperada** — o conteúdo do arquivo, impresso no terminal (o `-` final do
+  comando quer dizer "escreva na saída padrão em vez de salvar em disco"):
+
   ```text
   Voce leu isto com credencial temporaria de uma role assumida. Nenhuma access key foi criada neste lab.
   ```
 
-  **Se falhar** o segundo `assume` também: confira o valor com
-  `./scripts/tf.sh output ... | grep external_id`. A comparação é `StringEquals`,
-  então **diferencia maiúscula de minúscula** e não perdoa espaço sobrando.
+  **Se o `assume` do 4b falhar também:** confira o valor do external ID com
+  `./scripts/tf.sh output certifications/sap-c02/labs/lab-04-cross-account-iam | grep external_id`.
+  A comparação é `StringEquals`, então **diferencia maiúscula de minúscula** e não
+  perdoa espaço sobrando na cópia.
+  **Confira o `User:` da mensagem do 4a.** O erro tem que citar
+  `.../msp-caller/msp` como chamador. Se citar outra identidade, você não estava na
+  sessão certa — o erro apareceria de qualquer jeito (a condição do external ID vale
+  para **todo** principal da conta, admin inclusive), mas aí ele não está provando o
+  que o passo quer provar. Refaça o passo 3 e repita.
   **O que isso prova:** o external ID é avaliado **na entrada**, junto da trust
   policy, e não tem nada a ver com o que a role pode fazer depois. Repare também que
   você acabou de digitar o valor em texto puro num terminal — e tudo bem: ele não é
@@ -501,15 +593,34 @@ cada "Como ler". Tudo assume `us-east-1` e o prefixo de nome
 
 - [ ] **5. O teto de 1 hora do role chaining**
 
-  🎭 **Sessão do `msp-caller`.** Volte primeiro, porque você está no `audit-readonly`:
+  🎭 **Sessão do `msp-caller`.** Você terminou o passo 4 dentro do `audit-readonly`,
+  então precisa voltar. E voltar aqui é sempre a mesma dança: **`unassume` para virar
+  admin, depois `assume` para o `msp-caller`** — de dentro do `audit-readonly` você
+  não vai a lugar nenhum, porque aquela role não tem `sts:AssumeRole`.
+
+  **5a. Voltar ao ponto de partida**
 
   ```bash
   unassume && assume arn:aws:iam::000011112222:role/sap-c02-lab-04-cross-account-iam-msp-caller msp
   ```
 
-  **O que este passo faz:** pede uma sessão de 2 horas no segundo salto. O
+  **Saída esperada** — **duas** linhas, uma por comando: o `unassume` imprime o seu
+  ARN de admin, o `assume` imprime o do `msp-caller`.
+
+  ```text
+  arn:aws:sts::000011112222:assumed-role/AWSReservedSSO_AdministratorAccess_a1b2c3/seu.nome
+  arn:aws:sts::000011112222:assumed-role/sap-c02-lab-04-cross-account-iam-msp-caller/msp
+  ```
+
+  **5b. Pedir uma sessão de 2 horas**
+
+  **O que este passo faz:** pede 2 horas (`7200` segundos) no segundo salto. O
   `max_session_duration` das roles do lab é o padrão (1 h), mas o ponto aqui é outro:
   mesmo que fosse 12 h, o resultado seria o mesmo.
+
+  Este comando é o `aws sts assume-role` cru, **não** a função `assume` — ele imprime
+  o resultado e não troca a sua identidade. Você continua no `msp-caller` depois dele,
+  dê certo ou errado.
 
   ```bash
   aws sts assume-role \
@@ -519,7 +630,7 @@ cada "Como ler". Tudo assume `us-east-1` e o prefixo de nome
     --duration-seconds 7200
   ```
 
-  **Saída esperada:**
+  **Saída esperada** — um **erro**, e é ele o conteúdo do passo:
 
   ```text
   An error occurred (ValidationError) when calling the AssumeRole operation: The
@@ -530,6 +641,10 @@ cada "Como ler". Tudo assume `us-east-1` e o prefixo de nome
   **Como ler:** o erro é `ValidationError`, **não** `AccessDenied` — não é permissão,
   é um limite duro do STS. "Role chaining" é exatamente o que você está fazendo:
   assumir uma role a partir de uma sessão que já é de role assumida.
+  **Se a mensagem falar em `MaxSessionDuration set for this role`** em vez de
+  `role chaining`: você rodou a partir do 💻 admin. Os dois são `ValidationError`, mas
+  são limites diferentes — e o que este passo quer mostrar é o do chaining, que só
+  aparece quando o chamador **já é** uma sessão assumida. Refaça o 5a e repita.
   **O que isso prova:** em cadeias de acesso (usuário federado → role de conta hub →
   role de conta spoke) a sessão **sempre** cai para 1 hora, mesmo com
   `max_session_duration = 12h` configurado. Quando a questão descrever um job longo
@@ -538,11 +653,18 @@ cada "Como ler". Tudo assume `us-east-1` e o prefixo de nome
 
 - [ ] **6. Session policy: dá para cortar, não dá para ampliar**
 
-  🎭 **Sessão do `msp-caller`** (você já está nela depois do passo 5).
+  🎭 **Sessão do `msp-caller`** — você já está nela desde o 5a, e o 5b não mexeu
+  nisso.
   **O que este passo faz:** assume a `audit-readonly` passando uma policy **na hora
   da chamada**. Essa policy só vale para esta sessão e libera **um único objeto**.
   Repare que a role continua tendo permissão nos dois objetos — quem corta é a
   sessão.
+
+  **6a. Entrar com uma session policy**
+
+  Aqui a função `assume` não serve, porque ela não sabe passar `--policy`. O bloco
+  abaixo faz o mesmo trabalho na unha: chama o STS, recorta as três credenciais e as
+  exporta. Troque o nome do bucket nos **dois** lugares do JSON antes de colar.
 
   ```bash
   eval "$(aws sts assume-role \
@@ -556,19 +678,48 @@ cada "Como ler". Tudo assume `us-east-1` e o prefixo de nome
     | awk '{print "export AWS_ACCESS_KEY_ID="$1";export AWS_SECRET_ACCESS_KEY="$2";export AWS_SESSION_TOKEN="$3}')"
   ```
 
-  Agora os três testes, nesta ordem:
+  **Saída esperada: nenhuma.** Este bloco não imprime nada quando dá certo — todo o
+  resultado vira variável de ambiente. Silêncio aqui é sucesso; qualquer texto que
+  apareça é erro. Confirme onde você caiu:
+
+  ```bash
+  aws sts get-caller-identity --query Arn --output text
+  ```
+
+  **Saída esperada:**
+
+  ```text
+  arn:aws:sts::000011112222:assumed-role/sap-c02-lab-04-cross-account-iam-audit-readonly/so-hello
+  ```
+
+  O `/so-hello` no fim é o marcador desta sessão específica — é ele que distingue a
+  sessão com session policy da sessão `/auditoria` do passo 4, que tinha a permissão
+  cheia da role.
+
+  **6b. Os três testes, nesta ordem**
+
+  Um passa e dois falham. Os dois erros são **diferentes entre si**, e é essa
+  diferença que vale o passo.
+
+  **Teste 1 — o objeto que a session policy libera. Passa.**
 
   ```bash
   aws s3 cp s3://sap-c02-lab-04-cross-account-iam-000011112222/hello.txt -
   ```
 
+  **Saída esperada** — o conteúdo do arquivo:
+
   ```text
   Voce leu isto com credencial temporaria de uma role assumida. Nenhuma access key foi criada neste lab.
   ```
 
+  **Teste 2 — o outro objeto do mesmo bucket. Precisa falhar.**
+
   ```bash
   aws s3 cp s3://sap-c02-lab-04-cross-account-iam-000011112222/segundo.txt -
   ```
+
+  **Saída esperada** — erro, e leia a **última linha** dele:
 
   ```text
   fatal error: An error occurred (AccessDenied) when calling the GetObject operation:
@@ -578,9 +729,14 @@ cada "Como ler". Tudo assume `us-east-1` e o prefixo de nome
   because no session policy allows the s3:GetObject action
   ```
 
+  **Teste 3 — a ação que está escrita na session policy, mas não na role. Precisa
+  falhar também.**
+
   ```bash
   aws ec2 describe-instances --max-items 1
   ```
+
+  **Saída esperada** — outro erro, de outro tipo:
 
   ```text
   An error occurred (UnauthorizedOperation) when calling the DescribeInstances
@@ -606,7 +762,17 @@ cada "Como ler". Tudo assume `us-east-1` e o prefixo de nome
 
 - [ ] **7. Permission boundary: mesma identity policy, resultados diferentes**
 
-  🎭 Volte ao `msp-caller` e assuma o **gêmeo com boundary**:
+  **O que este passo faz:** roda **os mesmos três comandos** em duas roles gêmeas —
+  primeiro na que **tem** permission boundary, depois na que **não tem**. As duas
+  carregam a **mesma** identity policy anexada (`s3:Get*`, `s3:List*`, `s3:PutObject`
+  e `ec2:Describe*`, tudo em `*` — [main.tf:198](main.tf:198)); a boundary permite
+  apenas `s3:*` **no bucket do lab** ([main.tf:221](main.tf:221)). Como só uma coisa
+  difere entre as duas, toda diferença de resultado é efeito dela.
+
+  **7a. Entrar no gêmeo COM boundary**
+
+  Você está no `audit-readonly` desde o passo 6, então é a dança de sempre: `unassume`
+  → `msp-caller` → alvo.
 
   ```bash
   unassume && assume arn:aws:iam::000011112222:role/sap-c02-lab-04-cross-account-iam-msp-caller msp
@@ -616,31 +782,51 @@ cada "Como ler". Tudo assume `us-east-1` e o prefixo de nome
   assume arn:aws:iam::000011112222:role/sap-c02-lab-04-cross-account-iam-delegated-admin-bounded bounded
   ```
 
-  **O que este passo faz:** roda três comandos na role **com** boundary e depois os
-  mesmos três na role **sem** boundary. As duas têm a **mesma** identity policy
-  anexada (`s3:Get*`, `s3:List*`, `s3:PutObject` e `ec2:Describe*`, tudo em `*` —
-  [main.tf:198](main.tf:198)); a boundary permite apenas `s3:*` **no bucket do lab**
-  ([main.tf:221](main.tf:221)).
+  **Saída esperada** — o ARN da sessão nova, terminando em `/bounded`:
+
+  ```text
+  arn:aws:sts::000011112222:assumed-role/sap-c02-lab-04-cross-account-iam-delegated-admin-bounded/bounded
+  ```
+
+  **7b. Os três comandos, na role COM boundary**
+
+  Rode um de cada vez, para não misturar as saídas. **Um passa, dois falham.**
 
   ```bash
   aws s3 ls s3://sap-c02-lab-04-cross-account-iam-000011112222
-  aws s3 ls
-  aws ec2 describe-instances --max-items 1
   ```
 
-  **Saída esperada:**
+  **Saída esperada** — os dois objetos do bucket (as datas e os tamanhos serão os
+  seus):
 
   ```text
   2026-08-14 10:02:11        103 hello.txt
   2026-08-14 10:02:11         78 segundo.txt
+  ```
 
+  ```bash
+  aws s3 ls
+  ```
+
+  **Saída esperada** — erro. É o mesmo comando do passo 3, negado por um motivo
+  completamente diferente:
+
+  ```text
   An error occurred (AccessDenied) when calling the ListBuckets operation: Access Denied
+  ```
 
+  ```bash
+  aws ec2 describe-instances --max-items 1
+  ```
+
+  **Saída esperada** — erro:
+
+  ```text
   An error occurred (UnauthorizedOperation) when calling the DescribeInstances
   operation: You are not authorized to perform this operation.
   ```
 
-  Agora o gêmeo **sem** boundary, com os mesmos três comandos:
+  **7c. Os mesmos três comandos, na role SEM boundary**
 
   ```bash
   unassume && assume arn:aws:iam::000011112222:role/sap-c02-lab-04-cross-account-iam-msp-caller msp
@@ -650,11 +836,22 @@ cada "Como ler". Tudo assume `us-east-1` e o prefixo de nome
   assume arn:aws:iam::000011112222:role/sap-c02-lab-04-cross-account-iam-delegated-admin-unbounded unbounded
   ```
 
+  **Saída esperada** — o ARN da sessão nova, terminando em `/unbounded`:
+
   ```text
-  # aws s3 ls s3://...        → lista os dois objetos
-  # aws s3 ls                 → lista TODOS os buckets da conta
-  # aws ec2 describe-instances → responde (lista vazia se você destruiu o lab 01)
+  arn:aws:sts::000011112222:assumed-role/sap-c02-lab-04-cross-account-iam-delegated-admin-unbounded/unbounded
   ```
+
+  Agora repita os três comandos do 7b, sem mudar uma letra. **Saída esperada: os três
+  passam.**
+
+  - `aws s3 ls s3://BUCKET` → os mesmos dois objetos de antes.
+  - `aws s3 ls` → **a lista de todos os buckets da conta**, inclusive o de state do
+    `bootstrap`. Essa é a linha que muda tudo.
+  - `aws ec2 describe-instances --max-items 1` → um JSON. Se você já destruiu o
+    lab 01, vem `{"Reservations": []}` — **lista vazia é sucesso**, é uma resposta
+    autorizada dizendo que não há instâncias. Não confunda com o
+    `UnauthorizedOperation` do 7b.
 
   **Como ler:** monte a tabela mentalmente, porque é ela que a questão cobra:
 
@@ -670,20 +867,44 @@ cada "Como ler". Tudo assume `us-east-1` e o prefixo de nome
   Permissão é o par **ação + recurso**, nunca a ação sozinha.
   **O que isso prova:** a boundary não aparece em `list-attached-role-policies` nem
   na aba Permissions do console. Quem investiga "por que essa role não consegue?"
-  olhando só as policies anexadas **não acha o motivo**. Confirme com:
+  olhando só as policies anexadas **não acha o motivo**. Confirme você mesmo — mas
+  **volte ao 💻 admin antes**, porque nenhuma role do lab tem permissão de ler IAM:
+
+  ```bash
+  unassume
+  ```
 
   ```bash
   aws iam get-role --role-name sap-c02-lab-04-cross-account-iam-delegated-admin-bounded \
     --query 'Role.PermissionsBoundary' --output json
   ```
 
+  **Saída esperada** — o único lugar da API onde a boundary aparece:
+
+  ```json
+  {
+      "PermissionsBoundaryType": "Policy",
+      "PermissionsBoundaryArn": "arn:aws:iam::000011112222:policy/sap-c02-lab-04-cross-account-iam-boundary"
+  }
+  ```
+
+  Rode o mesmo comando trocando `bounded` por `unbounded` no `--role-name`: vem
+  `null`. É essa a diferença inteira entre as duas roles.
+
 - [ ] **8. Quebrar de propósito: arrancar a boundary e ver o gêmeo virar o outro**
 
-  💻 **Admin** (`unassume` primeiro — remover boundary é ação de administrador de
-  IAM, e nenhuma role do lab pode fazer isso).
+  💻 **Admin.** Este é o **único passo do lab que muda infraestrutura de verdade** —
+  ele apaga uma configuração criada pelo Terraform. São três atos e o terceiro
+  (reverter) não é opcional: sem ele, o state fica divergente e o próximo `plan`
+  acusa a diferença.
   **O que este passo faz:** tira a permission boundary da role `bounded` e **não
-  toca em mais nada**: nem na identity policy, nem na trust policy, nem no bucket. É
-  isso que isola a boundary como causa única.
+  toca em mais nada** — nem na identity policy, nem na trust policy, nem no bucket. É
+  isso que isola a boundary como causa única do que você viu no passo 7.
+
+  **8a. Arrancar a boundary**
+
+  Volte ao admin primeiro: mexer em boundary é ação de administrador de IAM, e
+  nenhuma role do lab pode fazer isso.
 
   ```bash
   unassume
@@ -694,21 +915,37 @@ cada "Como ler". Tudo assume `us-east-1` e o prefixo de nome
     --role-name sap-c02-lab-04-cross-account-iam-delegated-admin-bounded
   ```
 
-  Reassuma a role e repita os dois comandos que antes falhavam:
+  **Saída esperada: nenhuma.** Comandos `iam:Delete*` e `iam:Put*` não imprimem nada
+  quando dão certo. Silêncio é sucesso.
+
+  **8b. Repetir os dois comandos que antes falhavam**
 
   ```bash
   assume arn:aws:iam::000011112222:role/sap-c02-lab-04-cross-account-iam-msp-caller msp
+  ```
+
+  ```bash
   assume arn:aws:iam::000011112222:role/sap-c02-lab-04-cross-account-iam-delegated-admin-bounded bounded
+  ```
+
+  ```bash
   aws s3 ls
+  ```
+
+  ```bash
   aws ec2 describe-instances --max-items 1
   ```
 
-  **Saída esperada:** os dois passam a funcionar — a listagem de todos os buckets da
-  conta e a resposta do EC2. **A sessão antiga não precisa ser renovada por causa da
-  policy**, mas renove mesmo assim: mudança de boundary vale para a avaliação de cada
-  requisição, e reassumir elimina a dúvida.
+  **Saída esperada:** os dois **passam agora** — a listagem de todos os buckets da
+  conta e um JSON do EC2 (`{"Reservations": []}` conta como sucesso). É a mesma role,
+  com a mesma identity policy, no mesmo bucket: a única coisa que mudou desde o
+  passo 7 foi a boundary ter sumido.
 
-  **Reverter** (💻 admin — faça agora, não depois):
+  Reassumir não era estritamente necessário — a boundary é avaliada a cada
+  requisição, então a sessão antiga já teria mudado de comportamento sozinha. Faça
+  assim mesmo: elimina a dúvida de "será que é cache?".
+
+  **8c. Reverter — faça agora, não depois**
 
   ```bash
   unassume
@@ -720,16 +957,23 @@ cada "Como ler". Tudo assume `us-east-1` e o prefixo de nome
     --permissions-boundary arn:aws:iam::000011112222:policy/sap-c02-lab-04-cross-account-iam-boundary
   ```
 
-  Confirme que voltou:
+  Também não imprime nada. Confirme que voltou:
 
   ```bash
   aws iam get-role --role-name sap-c02-lab-04-cross-account-iam-delegated-admin-bounded \
     --query 'Role.PermissionsBoundary.PermissionsBoundaryArn' --output text
   ```
 
+  **Saída esperada** — o ARN da boundary de volta no lugar:
+
   ```text
   arn:aws:iam::000011112222:policy/sap-c02-lab-04-cross-account-iam-boundary
   ```
+
+  **Se vier `None`** em vez do ARN: o `put` não pegou. Repita o 8c antes de seguir.
+  **Se você fechou o terminal no meio do passo** e não sabe se reverteu: rode o
+  `get-role` acima. E, em último caso, `./scripts/tf.sh plan` acusa a boundary
+  faltando como diferença a aplicar.
 
   **O que isso prova:** duas coisas, e a segunda é a que cai na prova. Primeira: toda
   a diferença de comportamento do passo 7 era a boundary, sem nenhuma outra variável.
@@ -743,20 +987,37 @@ cada "Como ler". Tudo assume `us-east-1` e o prefixo de nome
 
 - [ ] **9. A trust policy sozinha basta? Depende de como ela nomeia o principal**
 
-  💻 **Admin** → 🎭 `msp-caller-trust-only`. Esta role **não tem nenhuma identity
-  policy** — nem uma linha.
+  💻 **Admin** → 🎭 `msp-caller-trust-only`. Atenção ao nome: este é o **outro**
+  chamador, o gêmeo do `msp-caller` que **não tem nenhuma identity policy** — nem uma
+  linha. É a linha `2_msp_caller_trust_only` do passo 1.
+
+  **O que este passo faz:** desse chamador sem permissão nenhuma, tenta entrar em duas
+  roles que têm **exatamente a mesma permissão** (a mesma policy gerenciada, anexada
+  às duas) e diferem **só** na trust policy. Uma tentativa falha, a outra passa.
+
+  **9a. Entrar no chamador sem identity policy**
 
   ```bash
   unassume && assume arn:aws:iam::000011112222:role/sap-c02-lab-04-cross-account-iam-msp-caller-trust-only trustonly
   ```
 
-  **O que este passo faz:** tenta assumir duas roles que têm **exatamente a mesma
-  permissão** (a mesma policy gerenciada, anexada às duas) e diferem **só** na trust
-  policy. Primeiro a que nomeia a conta:
+  **Saída esperada** — duas linhas: o seu ARN de admin e depois o do
+  `msp-caller-trust-only`. Confira que o segundo termina em
+  `-msp-caller-trust-only/trustonly`, e não em `-msp-caller/msp` — os nomes são
+  parecidos e trocar os dois arruína o passo.
+
+  ```text
+  arn:aws:sts::000011112222:assumed-role/AWSReservedSSO_AdministratorAccess_a1b2c3/seu.nome
+  arn:aws:sts::000011112222:assumed-role/sap-c02-lab-04-cross-account-iam-msp-caller-trust-only/trustonly
+  ```
+
+  **9b. A role cuja trust policy nomeia a CONTA — precisa falhar**
 
   ```bash
   assume arn:aws:iam::000011112222:role/sap-c02-lab-04-cross-account-iam-audit-readonly tentativa acme-msp-7f3c1b
   ```
+
+  **Saída esperada** — erro, mesmo tendo passado o external ID certo:
 
   ```text
   An error occurred (AccessDenied) when calling the AssumeRole operation: User:
@@ -765,11 +1026,15 @@ cada "Como ler". Tudo assume `us-east-1` e o prefixo de nome
   arn:aws:iam::000011112222:role/sap-c02-lab-04-cross-account-iam-audit-readonly
   ```
 
-  Agora a que nomeia o ARN exato desta role:
+  **9c. A role cuja trust policy nomeia o ARN EXATO deste chamador — precisa passar**
+
+  Sem external ID desta vez: a trust policy desta role não exige nenhum.
 
   ```bash
   assume arn:aws:iam::000011112222:role/sap-c02-lab-04-cross-account-iam-audit-direct-trust direto
   ```
+
+  **Saída esperada** — entrou:
 
   ```text
   arn:aws:sts::000011112222:assumed-role/sap-c02-lab-04-cross-account-iam-audit-direct-trust/direto
@@ -782,8 +1047,10 @@ cada "Como ler". Tudo assume `us-east-1` e o prefixo de nome
   significa **"delego para aquela conta"**, e delegação exige que a identity policy do
   chamador também permita. Nomear o principal exato é uma **concessão direta** — e
   dentro da mesma conta, uma das duas policies basta.
-  **Se as duas falharem:** você provavelmente esqueceu o `unassume` e está tentando a
-  partir do `msp-caller`, que tem identity policy e passaria na primeira.
+  **Se o resultado vier invertido** — 9b passando e 9c falhando — você está no
+  chamador errado: `msp-caller` (ou o próprio admin) tem identity policy e passa no
+  9b, mas nenhum dos dois é nomeado na trust policy do `audit-direct-trust`, então
+  leva `AccessDenied` no 9c. Refaça o 9a olhando o nome completo da role.
   **O que isso prova:** e aqui está o pulo do gato do lab — **essa assimetria só
   existe dentro da mesma conta**. Se o `msp-caller-trust-only` estivesse em outra
   conta, a segunda tentativa **também** falharia, por mais específica que fosse a
@@ -793,18 +1060,30 @@ cada "Como ler". Tudo assume `us-east-1` e o prefixo de nome
 
 - [ ] **10. Access Analyzer: ler o zero e validar policy sem aplicar nada**
 
-  💻 **Admin.**
-  **O que este passo faz:** pergunta ao analyzer quem, de fora da conta, alcança
-  algum recurso. Primeiro pegue o ARN dele:
+  💻 **Admin.** Você está no `audit-direct-trust` desde o passo 9 — volte antes de
+  qualquer coisa, porque nenhuma role do lab tem permissão de falar com o analyzer.
 
   ```bash
   unassume
   ```
 
+  **O que este passo faz:** usa as **duas** ferramentas diferentes que se chamam
+  Access Analyzer. A primeira pergunta quem, de fora da conta, alcança algum recurso;
+  a segunda critica um texto de policy que você nem aplicou.
+
+  > Os comandos deste passo usam `--output table`, que é a saída mais propensa a cair
+  > no pager. Se aparecer `(END)`, é o `less`: `q` sai, e o `export AWS_PAGER=""` do
+  > passo 2 resolve de vez.
+
+  **10a. Achar o analyzer**
+
   ```bash
   aws accessanalyzer list-analyzers --type ACCOUNT \
     --query 'analyzers[].[name,arn,status]' --output table --region us-east-1
   ```
+
+  **Saída esperada** — uma linha, com `ACTIVE` no fim. **Copie o ARN**, ele é o
+  argumento do 10b:
 
   ```text
   ------------------------------------------------------------------------------------
@@ -812,13 +1091,20 @@ cada "Como ler". Tudo assume `us-east-1` e o prefixo de nome
   ------------------------------------------------------------------------------------
   ```
 
+  **Se vier vazio:** ou o apply rodou com `create_access_analyzer = false`, ou a conta
+  já tinha um analyzer com outro nome (veja a nota da seção **Executar**). Qualquer
+  analyzer `ACCOUNT` da lista serve para o 10b.
+
+  **10b. Ler os findings — e o vazio é a resposta**
+
   ```bash
   aws accessanalyzer list-findings \
     --analyzer-arn arn:aws:access-analyzer:us-east-1:000011112222:analyzer/sap-c02-lab-04-cross-account-iam \
     --query 'findings[].[resourceType,principal,status]' --output table --region us-east-1
   ```
 
-  **Saída esperada:**
+  **Saída esperada** — uma tabela **vazia**, só com o cabeçalho. Isto **não** é erro,
+  não é falta de permissão e não é o analyzer ainda processando:
 
   ```text
   ----------------
@@ -835,14 +1121,19 @@ cada "Como ler". Tudo assume `us-east-1` e o prefixo de nome
   linha de policy. Errar qual é a zona de confiança é o jeito clássico de errar a
   questão de Access Analyzer.
 
-  Agora a parte que funciona sem nenhum recurso na frente — validação **estática** de
-  uma policy que você nem aplicou:
+  **10c. Validar uma policy que não existe em lugar nenhum**
+
+  Esta parte funciona sem nenhum recurso na frente — é validação **estática** de um
+  texto de policy que você nem aplicou, e que ninguém deveria aplicar.
 
   ```bash
   aws accessanalyzer validate-policy --policy-type RESOURCE_POLICY \
     --policy-document '{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":{"AWS":"*"},"Action":"sts:AssumeRole"}]}' \
     --query 'findings[].[findingType,issueCode]' --output table --region us-east-1
   ```
+
+  **Saída esperada** — uma tabela com achados. Os `issueCode` que você vai ver podem
+  ser outros, e tudo bem (veja o "Como ler" logo abaixo):
 
   ```text
   ------------------------------------------------------
@@ -869,10 +1160,10 @@ cada "Como ler". Tudo assume `us-east-1` e o prefixo de nome
 
 - [ ] **11. Achar tudo isso no CloudTrail**
 
-  💻 **Admin.**
+  💻 **Admin** — você já está nele desde o passo 10.
   **O que este passo faz:** procura no Event history (últimos 90 dias, grátis, não
-  precisa de trilha configurada) os `AssumeRole` que você acabou de fazer. Este é o
-  passo que transforma o lab em evidência de auditoria.
+  precisa de trilha configurada) os `AssumeRole` que você acabou de fazer nos passos
+  3 a 9. Este é o passo que transforma o lab em evidência de auditoria.
 
   ```bash
   aws cloudtrail lookup-events \
@@ -881,7 +1172,9 @@ cada "Como ler". Tudo assume `us-east-1` e o prefixo de nome
     --query 'Events[].[EventTime,Username,ErrorCode]' --output table
   ```
 
-  **Saída esperada:**
+  **Saída esperada** — uma linha por tentativa, da mais recente para a mais antiga. Os
+  seus session names serão os que você digitou (`msp`, `auditoria`, `bounded`,
+  `trustonly`, `direto`, `so-hello`, `teste-duracao`):
 
   ```text
   -------------------------------------------------------------------
@@ -890,6 +1183,9 @@ cada "Como ler". Tudo assume `us-east-1` e o prefixo de nome
   |  2026-08-14T10:39:12-03:00 |  bounded    |  None                 |
   -------------------------------------------------------------------
   ```
+
+  `None` na terceira coluna quer dizer "sem erro" — ou seja, **a chamada passou**. É
+  o contrário do que a palavra sugere à primeira vista.
 
   **Como ler:** a coluna do meio é o **session name** que você inventou no `assume` —
   é por isso que session name descartável ("teste", "abc") é um problema de
@@ -908,6 +1204,22 @@ cada "Como ler". Tudo assume `us-east-1` e o prefixo de nome
   fornecedor fez a chamada.
 
 - [ ] **12. Conferir a conta**
+
+  Antes de fechar o terminal, dois fechamentos de 💻 admin — o segundo é o que
+  importa:
+
+  ```bash
+  unassume
+  ```
+
+  ```bash
+  aws iam get-role --role-name sap-c02-lab-04-cross-account-iam-delegated-admin-bounded \
+    --query 'Role.PermissionsBoundary.PermissionsBoundaryArn' --output text
+  ```
+
+  **Saída esperada** — o ARN da boundary. Se vier `None`, o 8c ficou pela metade:
+  volte e rode o `put-role-permissions-boundary`. (Fechar o terminal sem isso não
+  quebra nada de imediato, mas deixa o state divergente do que existe na AWS.)
 
   🌐 **No navegador**, D+1. Console → **Billing and Cost Management** → **Cost
   Explorer** → filtro **Tag** → chave `Lab` → valor `lab-04-cross-account-iam`.
