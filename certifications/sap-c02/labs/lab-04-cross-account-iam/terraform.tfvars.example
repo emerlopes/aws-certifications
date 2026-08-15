@@ -1,0 +1,8 @@
+# Copie para terraform.tfvars (ignorado pelo git) e ajuste se precisar.
+# certification / lab / aws_region são injetadas pelo ./scripts/tf.sh.
+
+# external_id = "acme-msp-7f3c1b"
+
+# Deixe false se o apply falhar com ConflictException — a conta já tem um
+# analyzer do tipo ACCOUNT nesta região (Security Hub e Control Tower criam um).
+# create_access_analyzer = true

@@ -64,7 +64,7 @@ brew install terraform-linters/tap/tflint
 | `tflint`    | Lint de Terraform                                            | `tf.sh lint` avisa e segue       |
 | `checkov`   | Scan de segurança dos `.tf` (vira estudo do Domínio 2.3/3.2) | `tf.sh lint` pula essa etapa     |
 | `infracost` | Estimativa de custo antes do `apply`                         | `tf.sh cost` não roda            |
-| `jq`        | Filtrar saída JSON do AWS CLI nas verificações manuais       | Nada quebra, só dá mais trabalho |
+| `jq`        | Filtrar saída JSON do AWS CLI nas verificações manuais       | O lab 04 não roda sem ele        |
 
 > **Dois cuidados com o `brew`:**
 >

@@ -8,6 +8,9 @@
 ⚠️ O **lab 03** é o mais caro por hora do repositório: US$ 0,50/h só de resolver
 endpoints (4 ENIs), cobrados existindo tráfego ou não. Destrua no mesmo dia.
 
+O **lab 04** é o outro extremo: custa **US$ 0,00** e não tem pressa para destruir.
+Só IAM, STS e o Access Analyzer de acesso externo, que não cobram.
+
 ## Domínio 1 — Organizational Complexity (26%)
 
 | #   | Lab                                                 | Task      | Custo | O que treina                                                                  |
@@ -15,7 +18,7 @@ endpoints (4 ENIs), cobrados existindo tráfego ou não. Destrua no mesmo dia.
 | 01  | [`lab-01-vpc-base`](lab-01-vpc-base/)               | 1.1       | 🟡    | VPC 3-tier sem NAT, Session Manager, gateway vs. interface endpoint           |
 | 02  | [`lab-02-transit-gateway`](lab-02-transit-gateway/) | 1.1       | 💰    | 3 VPCs no TGW, route tables segmentadas, roteamento não-transitivo do peering |
 | 03  | [`lab-03-dns-hibrido`](lab-03-dns-hibrido/)         | 1.1       | 💰    | Route 53 Resolver inbound/outbound, private hosted zone, forwarding rules     |
-| 04  | `lab-04-cross-account-iam`                          | 1.2       | 🟢    | AssumeRole cross-account, ExternalId, permission boundary, Access Analyzer    |
+| 04  | [`lab-04-cross-account-iam`](lab-04-cross-account-iam/) | 1.2   | 🟢    | AssumeRole, ExternalId, permission boundary, session policy, Access Analyzer  |
 | 05  | `lab-05-kms-criptografia`                           | 1.2       | 🟢    | CMK com key policy, grants, envelope encryption, S3/EBS, ACM                  |
 | 06  | `lab-06-seguranca-centralizada`                     | 1.2 / 1.4 | 🟡    | CloudTrail organizacional, Security Hub, GuardDuty, Config agregado           |
 | 07  | `lab-07-dr-pilot-light`                             | 1.3       | 💰    | RTO/RPO na prática: Aurora Global, AMI cross-region, failover cronometrado    |
